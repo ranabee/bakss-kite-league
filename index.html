@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#ffd76a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
+<link rel="manifest" href="manifest.json"/>
+<title>BAKSS Kite Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#08101f;
+  --card:#1f2937;
+  --card2:#162030;
+  --gold:#ffd76a;
+  --gold2:#e6c054;
+  --text:#ffffff;
+  --text2:#94a3b8;
+  --red:#ef4444;
+  --green:#22c55e;
+  --blue:#3b82f6;
+  --border:#2d3f54;
+  --radius:14px;
+  --radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px}
+
+#app{display:flex;flex-direction:column;min-height:100vh}
+#header{background:linear-gradient(135deg,#0a1628,#142038);border-bottom:1px solid var(--border);padding:10px 16px;position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:12px}
+#header .logo-img{height:44px;width:auto;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 2px 8px rgba(255,215,106,0.3))}
+#header .title-area{flex:1;min-width:0}
+#header .title-area h1{font-size:15px;font-weight:800;color:var(--gold);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#header .title-area p{font-size:11px;color:var(--text2);margin-top:1px}
+#header .admin-btn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap;flex-shrink:0}
+#header .admin-btn.active{background:var(--gold);color:#000;border-color:var(--gold);font-weight:700}
+#season-bar{background:var(--card2);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none}
+#season-bar::-webkit-scrollbar{display:none}
+.season-pill{background:transparent;border:1px solid var(--border);color:var(--text2);padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;transition:.2s;font-weight:500}
+.season-pill.active{background:var(--gold);color:#000;border-color:var(--gold);font-weight:700}
+#nav{background:var(--card2);border-top:1px solid var(--border);padding:0;position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;background:transparent;border:none;color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;transition:.15s;letter-spacing:.3px}
+.nav-btn .nav-icon{font-size:22px;line-height:1}
+.nav-btn.active{color:var(--gold)}
+.nav-btn.active .nav-icon{transform:scale(1.1)}
+#content{flex:1;padding:16px;padding-bottom:80px;overflow-y:auto}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:var(--radius);font-size:15px;font-weight:700;cursor:pointer;border:none;transition:.2s;width:100%;letter-spacing:.3px}
+.btn-gold{background:var(--gold);color:#000}
+.btn-gold:hover{background:var(--gold2)}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-red{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-sm{padding:8px 14px;font-size:13px;width:auto;min-width:80px}
+
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+select,input,textarea{width:100%;background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;outline:none;transition:.2s;font-family:inherit;appearance:none;-webkit-appearance:none}
+select:focus,input:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,215,106,.15)}
+textarea{resize:vertical;min-height:70px}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stats-grid.three{grid-template-columns:repeat(3,1fr)}
+.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-box .val{font-size:24px;font-weight:800;color:var(--gold);line-height:1.1}
+.stat-box .lbl{font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.stat-box.highlight{background:linear-gradient(135deg,rgba(255,215,106,.12),rgba(255,215,106,.04));border-color:rgba(255,215,106,.4)}
+
+.champion-card{background:linear-gradient(135deg,#1a2840,#0f1e33);border:1px solid rgba(255,215,106,.3);border-radius:var(--radius);padding:18px;margin-bottom:10px;position:relative;overflow:hidden}
+.champion-card::before{content:'🏆';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.07}
+.champion-card .period{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.champion-card .name{font-size:22px;font-weight:800;color:var(--text)}
+.champion-card .stat{font-size:12px;color:var(--text2);margin-top:4px}
+
+.lb-table{width:100%;border-collapse:collapse}
+.lb-table th{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;padding:8px 6px;text-align:center;border-bottom:1px solid var(--border)}
+.lb-table th:first-child{text-align:left;padding-left:8px}
+.lb-table td{padding:10px 6px;text-align:center;border-bottom:1px solid rgba(45,63,84,.5);font-size:13px}
+.lb-table td:first-child{text-align:left;padding-left:8px}
+.lb-table tr:last-child td{border-bottom:none}
+.rank-badge{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;margin-right:6px;background:var(--border)}
+.rank-badge.r1{background:var(--gold);color:#000}
+.rank-badge.r2{background:#c0c0c0;color:#000}
+.rank-badge.r3{background:#cd7f32;color:#fff}
+.player-name-cell{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+
+.streak{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.streak.win{background:rgba(34,197,94,.2);color:var(--green)}
+.streak.loss{background:rgba(239,68,68,.2);color:var(--red)}
+
+.match-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.match-item .match-players{flex:1;min-width:0}
+.match-item .winner{font-weight:700;color:var(--green);font-size:13px}
+.match-item .loser{font-size:12px;color:var(--text2);margin-top:2px}
+.match-item .match-meta{text-align:right;flex-shrink:0}
+.match-item .match-date{font-size:11px;color:var(--text2)}
+.match-item .match-season{font-size:10px;color:var(--gold);font-weight:700;margin-top:2px}
+.cut-badge{font-size:11px;font-weight:800;color:var(--gold);background:rgba(255,215,106,.15);border-radius:6px;padding:3px 8px;flex-shrink:0}
+.match-item .admin-actions{display:flex;gap:6px;margin-top:8px}
+
+.matrix-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.matrix-table{border-collapse:collapse;min-width:100%}
+.matrix-table th,.matrix-table td{padding:7px 8px;text-align:center;font-size:11px;border:1px solid var(--border);white-space:nowrap;min-width:48px}
+.matrix-table th{background:var(--card2);font-weight:700;color:var(--text2)}
+.matrix-table th:first-child{text-align:left;position:sticky;left:0;z-index:2;background:var(--card2)}
+.matrix-table td:first-child{background:var(--card);font-weight:600;position:sticky;left:0;z-index:1}
+.matrix-table td.self{background:var(--border);color:var(--text2)}
+.matrix-table td.hot{background:rgba(255,215,106,.2);color:var(--gold);font-weight:700}
+.matrix-table td.cold{background:rgba(239,68,68,.1);color:var(--text2)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius) var(--radius) 0 0;padding:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;border-top:3px solid var(--gold)}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:16px;color:var(--gold)}
+.modal-close{float:right;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;margin-top:-2px}
+
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);color:var(--text);padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:300;opacity:0;transition:.3s;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+
+.search-bar{position:relative;margin-bottom:12px}
+.search-bar input{padding-left:40px}
+.search-bar::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none}
+
+.filter-row{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-chip{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600;transition:.2s}
+.filter-chip.active{background:var(--gold);color:#000;border-color:var(--gold)}
+
+.profile-header{text-align:center;padding:20px 0}
+.profile-avatar{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#000;margin:0 auto 12px}
+.profile-name{font-size:20px;font-weight:800}
+.profile-status{font-size:12px;color:var(--text2);margin-top:4px}
+
+.tab-row{display:flex;gap:4px;margin-bottom:14px;background:var(--bg);border-radius:var(--radius-sm);padding:4px}
+.tab-btn{flex:1;padding:8px;border:none;background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;border-radius:6px;transition:.2s}
+.tab-btn.active{background:var(--gold);color:#000}
+
+.report-stat{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.report-stat:last-child{border-bottom:none}
+.report-stat .key{font-size:13px;color:var(--text2)}
+.report-stat .value{font-size:14px;font-weight:700;color:var(--text)}
+
+#conn-indicator{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;transition:.3s}
+#conn-indicator.offline{background:var(--red)}
+
+.section-hidden{display:none}
+.section-active{display:block}
+
+.rivalry-badge{background:rgba(255,215,106,.1);border:1px solid rgba(255,215,106,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.rivalry-vs{font-size:13px;font-weight:700}
+.rivalry-score{font-size:14px;font-weight:800;color:var(--gold)}
+
+.chart-container{position:relative;height:220px;width:100%;margin-top:8px}
+
+.player-admin-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.player-admin-item:last-child{border-bottom:none}
+.player-admin-item .info{flex:1;min-width:0}
+.player-admin-item .info .name{font-weight:600;font-size:14px}
+.player-admin-item .info .sub{font-size:11px;color:var(--text2);margin-top:2px}
+.player-admin-item .actions{display:flex;gap:6px}
+.inactive-tag{font-size:10px;background:rgba(239,68,68,.2);color:var(--red);padding:2px 7px;border-radius:8px;font-weight:700}
+.active-tag{font-size:10px;background:rgba(34,197,94,.2);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:700}
+
+.pin-dots{display:flex;justify-content:center;gap:12px;margin:16px 0}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:.2s}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold)}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto}
+.pin-key{background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-size:20px;font-weight:700;padding:16px;border-radius:var(--radius-sm);cursor:pointer;transition:.15s;text-align:center}
+.pin-key:active{background:var(--gold);color:#000;border-color:var(--gold)}
+
+.empty{text-align:center;padding:40px 20px;color:var(--text2)}
+.empty .icon{font-size:48px;margin-bottom:12px}
+.empty p{font-size:14px}
+
+.rt-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;display:inline-block;margin-left:6px}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(min-width:768px){
+  #content{max-width:640px;margin:0 auto}
+  #nav{max-width:640px;left:50%;transform:translateX(-50%)}
+  .stats-grid{grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <img class="logo-img" src="data:image/jpeg;base64,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" alt="BAKSS"/>
+    <div class="title-area">
+      <h1>BAKSS Kite Manager</h1>
+      <p id="active-season-label">Loading...</p>
+    </div>
+    <div id="conn-indicator"></div>
+    <button class="admin-btn" id="admin-toggle" onclick="openAdminModal()">⚙️ Admin</button>
+  </div>
+  <div id="season-bar"></div>
+  <div id="content">
+    <div id="page-record" class="section-active"></div>
+    <div id="page-dashboard" class="section-hidden"></div>
+    <div id="page-reports" class="section-hidden"></div>
+    <div id="page-settings" class="section-hidden"></div>
+  </div>
+  <nav id="nav">
+    <button class="nav-btn active" onclick="showPage('record')"><span class="nav-icon">✂️</span>Record</button>
+    <button class="nav-btn" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
+    <button class="nav-btn" onclick="showPage('reports')"><span class="nav-icon">📈</span>Reports</button>
+    <button class="nav-btn" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>Settings</button>
+  </nav>
+</div>
+
+<!-- Admin PIN Modal -->
+<div class="modal-overlay" id="modal-admin-pin">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-admin-pin')">✕</button>
+    <div class="modal-title">🔐 Admin Access</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinKey(1)">1</button><button class="pin-key" onclick="pinKey(2)">2</button><button class="pin-key" onclick="pinKey(3)">3</button>
+      <button class="pin-key" onclick="pinKey(4)">4</button><button class="pin-key" onclick="pinKey(5)">5</button><button class="pin-key" onclick="pinKey(6)">6</button>
+      <button class="pin-key" onclick="pinKey(7)">7</button><button class="pin-key" onclick="pinKey(8)">8</button><button class="pin-key" onclick="pinKey(9)">9</button>
+      <button class="pin-key" onclick="pinKey('clear')">⌫</button><button class="pin-key" onclick="pinKey(0)">0</button><button class="pin-key" onclick="pinKey('ok')" style="color:var(--gold)">✓</button>
+    </div>
+    <p id="pin-error" style="text-align:center;color:var(--red);font-size:13px;margin-top:12px;display:none">Incorrect PIN</p>
+  </div>
+</div>
+
+<!-- Add Player Modal -->
+<div class="modal-overlay" id="modal-add-player">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-add-player')">✕</button>
+    <div class="modal-title">👤 Add Player</div>
+    <div class="form-group"><label>Player Name</label><input type="text" id="new-player-name" placeholder="Enter player name" autocomplete="off"/></div>
+    <button class="btn btn-gold" onclick="addPlayer()">Add Player</button>
+  </div>
+</div>
+
+<!-- Edit Player Modal (Admin) -->
+<div class="modal-overlay" id="modal-edit-player">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-player')">✕</button>
+    <div class="modal-title">✏️ Edit Player</div>
+    <input type="hidden" id="edit-player-id"/>
+    <div class="form-group"><label>Player Name</label><input type="text" id="edit-player-name" placeholder="Player name"/></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-gold" onclick="saveEditPlayer()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-player')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Match Modal (Admin) -->
+<div class="modal-overlay" id="modal-edit-match">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-match')">✕</button>
+    <div class="modal-title">✏️ Edit Match</div>
+    <input type="hidden" id="edit-match-id"/>
+    <div class="form-group"><label>Winner</label><select id="edit-match-winner"></select></div>
+    <div class="form-group"><label>Loser</label><select id="edit-match-loser"></select></div>
+    <div class="form-group"><label>Date</label><input type="date" id="edit-match-date"/></div>
+    <div class="form-group"><label>Season</label><select id="edit-match-season"></select></div>
+    <div class="form-group"><label>Notes</label><textarea id="edit-match-notes" placeholder="Optional notes"></textarea></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-gold" onclick="saveEditMatch()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-match')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Season Modal (Admin Only) -->
+<div class="modal-overlay" id="modal-add-season">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-add-season')">✕</button>
+    <div class="modal-title">🗓️ Add Season</div>
+    <div class="form-group"><label>Season Name</label><input type="text" id="new-season-name" placeholder="e.g. Basant 2027"/></div>
+    <div class="form-group">
+      <label>Set as Active Season</label>
+      <select id="new-season-active"><option value="false">No — just create it</option><option value="true">Yes — make it the active season</option></select>
+    </div>
+    <button class="btn btn-gold" onclick="addSeason()">Create Season</button>
+  </div>
+</div>
+
+<!-- Player Profile Modal -->
+<div class="modal-overlay" id="modal-player-profile">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-player-profile')">✕</button>
+    <div id="player-profile-content"></div>
+  </div>
+</div>
+
+<!-- Merge Player Modal -->
+<div class="modal-overlay" id="modal-merge-player">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-merge-player')">✕</button>
+    <div class="modal-title">🔀 Merge Players</div>
+    <div class="form-group"><label>Keep Player</label><select id="merge-keep"></select></div>
+    <div class="form-group"><label>Remove (merge into Keep)</label><select id="merge-remove"></select></div>
+    <button class="btn btn-red" onclick="mergePlayers()">Merge Players</button>
+    <p style="font-size:11px;color:var(--text2);margin-top:8px">All matches from "Remove" will be transferred to "Keep". Cannot be undone.</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://fblzbbbftapygeurseza.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZibHpiYmJmdGFweWdldXJzZXphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Njk4ODgsImV4cCI6MjA5NzA0NTg4OH0.tLmp-zuYC6RpewFujYSqNoITNpRISoEwoaF7XPHwM-s';
+const ADMIN_PIN = '7860';
+
+let sb;
+let state = {
+  isAdmin: false,
+  players: [],
+  matches: [],
+  seasons: [],
+  activeSeason: null,
+  currentPage: 'record',
+  historyFilter: { search: '', season: '' },
+  charts: {},
+  realtimeSub: null,
+  isOnline: navigator.onLine,
+  pinBuffer: ''
+};
+
+async function init() {
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    await loadAll();
+    setupRealtime();
+    renderAll();
+    registerSW();
+  } catch(e) {
+    console.error('Init error:', e);
+    showToast('Connection error. Check network.', 'error');
+  }
+  window.addEventListener('online', () => { state.isOnline = true; updateConn(); loadAll().then(renderAll); });
+  window.addEventListener('offline', () => { state.isOnline = false; updateConn(); });
+  updateConn();
+}
+
+function updateConn() {
+  const el = document.getElementById('conn-indicator');
+  if (el) el.className = state.isOnline ? '' : 'offline';
+}
+
+async function loadAll() {
+  const [players, matches, seasons] = await Promise.all([
+    sb.from('kite_players').select('*').order('name'),
+    sb.from('kite_matches').select('*').order('match_date', {ascending:false}).order('created_at', {ascending:false}),
+    sb.from('kite_seasons').select('*').order('created_at')
+  ]);
+  if (players.data) state.players = players.data;
+  if (matches.data) state.matches = matches.data.map(m => ({...m, match_date: m.match_date || m.session_date}));
+  if (seasons.data) state.seasons = seasons.data;
+  const active = state.seasons.find(s => s.is_active);
+  if (active) state.activeSeason = active.name;
+  else if (state.seasons.length) state.activeSeason = state.seasons[0].name;
+}
+
+function setupRealtime() {
+  if (state.realtimeSub) state.realtimeSub.unsubscribe();
+  state.realtimeSub = sb.channel('kite-live')
+    .on('postgres_changes', {event:'*', schema:'public', table:'kite_matches'}, () => loadAll().then(renderAll))
+    .on('postgres_changes', {event:'*', schema:'public', table:'kite_players'}, () => loadAll().then(renderAll))
+    .on('postgres_changes', {event:'*', schema:'public', table:'kite_seasons'}, () => loadAll().then(renderAll))
+    .subscribe();
+}
+
+// --- Navigation ---
+function showPage(page) {
+  state.currentPage = page;
+  document.querySelectorAll('[id^="page-"]').forEach(el => {
+    el.className = el.id === 'page-' + page ? 'section-active' : 'section-hidden';
+  });
+  document.querySelectorAll('.nav-btn').forEach((btn, i) => {
+    btn.className = 'nav-btn' + (['record','dashboard','reports','settings'][i] === page ? ' active' : '');
+  });
+  renderPage(page);
+}
+
+function renderAll() { renderSeasonBar(); renderPage(state.currentPage); }
+function renderPage(p) {
+  if (p==='record') renderRecord();
+  if (p==='dashboard') renderDashboard();
+  if (p==='reports') renderReports();
+  if (p==='settings') renderSettings();
+}
+
+// --- Season Bar ---
+function renderSeasonBar() {
+  const bar = document.getElementById('season-bar');
+  const label = document.getElementById('active-season-label');
+  const allBtn = '<button class="season-pill ' + (!state.activeSeason ? 'active' : '') + '" onclick="setSeason(null)">All Time</button>';
+  const pills = state.seasons.map(s =>
+    '<button class="season-pill ' + (state.activeSeason === s.name ? 'active' : '') + '" onclick="setSeason(\'' + esc(s.name) + '\')">' + esc(s.name) + '</button>'
+  ).join('');
+  bar.innerHTML = allBtn + pills;
+  if (label) label.textContent = state.activeSeason || 'All Seasons';
+}
+
+function setSeason(name) { state.activeSeason = name; renderAll(); }
+
+// --- Helpers ---
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function playerName(id) { const p = state.players.find(p => p.id === id); return p ? p.name : 'Unknown'; }
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d + (d.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+}
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function seasonMatches() { return state.activeSeason ? state.matches.filter(m => m.season === state.activeSeason) : state.matches; }
+
+function playerStats(pid, matches) {
+  const wins = matches.filter(m => m.winner_id === pid).length;
+  const losses = matches.filter(m => m.loser_id === pid).length;
+  const total = wins + losses;
+  const winPct = total ? Math.round(wins/total*100) : 0;
+  const pm = matches.filter(m => m.winner_id === pid || m.loser_id === pid)
+    .sort((a,b) => new Date(b.match_date) - new Date(a.match_date));
+  let streak = 0, sType = '';
+  if (pm.length) {
+    sType = pm[0].winner_id === pid ? 'W' : 'L';
+    for (const m of pm) {
+      const w = m.winner_id === pid;
+      if ((w && sType==='W') || (!w && sType==='L')) streak++;
+      else break;
+    }
+  }
+  let mxW=0, mxL=0, cur=0, ct='';
+  for (const m of [...pm].reverse()) {
+    const w = m.winner_id === pid; const t = w?'W':'L';
+    if (t===ct) cur++; else { cur=1; ct=t; }
+    if (t==='W' && cur>mxW) mxW=cur;
+    if (t==='L' && cur>mxL) mxL=cur;
+  }
+  return { wins, losses, total, winPct, ratio: losses ? (wins/losses).toFixed(1) : wins>0?'∞':'0', streak, sType, mxW, mxL };
+}
+
+function leaderboard(matches, players) {
+  return players.filter(p => p.active !== false)
+    .map(p => ({ ...p, ...playerStats(p.id, matches) }))
+    .filter(p => p.total > 0)
+    .sort((a,b) => b.wins - a.wins || a.losses - b.losses);
+}
+
+// --- Record Page ---
+function renderRecord() {
+  const page = document.getElementById('page-record');
+  const sm = seasonMatches();
+  const ap = state.players.filter(p => p.active !== false);
+  const pOpts = ap.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+  const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===state.activeSeason?' selected':'') + '>' + esc(s.name) + '</option>').join('');
+  const today = todayStr();
+  const todayCount = sm.filter(m => m.match_date === today).length;
+  const recent = sm.slice(0,20).map(m => matchHTML(m, false)).join('');
+
+  page.innerHTML =
+    '<div class="card">' +
+      '<div class="card-title"><span class="dot"></span>Record Cut ✂️ <span class="rt-dot"></span></div>' +
+      '<div class="form-group"><label>Winner (Cutter) 🏆</label><select id="rec-winner"><option value="">Select winner...</option>' + pOpts + '</select></div>' +
+      '<div class="form-group"><label>Loser (Cut) ❌</label><select id="rec-loser"><option value="">Select loser...</option>' + pOpts + '</select></div>' +
+      '<div class="form-group"><label>Date</label><input type="date" id="rec-date" value="' + today + '"/></div>' +
+      '<div class="form-group"><label>Season</label><select id="rec-season">' + sOpts + '</select></div>' +
+      '<div class="form-group"><label>Notes (Optional)</label><textarea id="rec-notes" placeholder="Add notes..."></textarea></div>' +
+      '<button class="btn btn-gold" onclick="recordCut()">✂️ Record Cut</button>' +
+      '<button class="btn btn-outline" style="margin-top:10px" onclick="openModal(\'modal-add-player\')">+ Add New Player</button>' +
+    '</div>' +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Today\'s Activity</div>' +
+      '<div class="stats-grid three">' +
+        '<div class="stat-box highlight"><div class="val">' + todayCount + '</div><div class="lbl">Today</div></div>' +
+        '<div class="stat-box"><div class="val">' + sm.length + '</div><div class="lbl">Season</div></div>' +
+        '<div class="stat-box"><div class="val">' + ap.length + '</div><div class="lbl">Players</div></div>' +
+      '</div></div>' +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Recent Cuts</div>' +
+      (recent || '<div class="empty"><div class="icon">✂️</div><p>No cuts recorded yet!</p></div>') +
+    '</div>';
+}
+
+function matchHTML(m, adminActions) {
+  const w = playerName(m.winner_id), l = playerName(m.loser_id);
+  const admin = adminActions && state.isAdmin;
+  return '<div class="match-item" id="match-' + m.id + '">' +
+    '<span class="cut-badge">✂️</span>' +
+    '<div class="match-players">' +
+      '<div class="winner">🏆 ' + esc(w) + '</div>' +
+      '<div class="loser">cut ' + esc(l) + '</div>' +
+      (m.notes ? '<div style="font-size:11px;color:var(--text2);margin-top:3px;font-style:italic">' + esc(m.notes) + '</div>' : '') +
+      (admin ? '<div class="admin-actions"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditMatch(\'' + m.id + '\')">✏️ Edit</button><button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteMatch(\'' + m.id + '\')">🗑 Delete</button></div>' : '') +
+    '</div>' +
+    '<div class="match-meta"><div class="match-date">' + fmtDate(m.match_date) + '</div><div class="match-season">' + esc(m.season||'') + '</div></div>' +
+  '</div>';
+}
+
+async function recordCut() {
+  const wId = document.getElementById('rec-winner').value;
+  const lId = document.getElementById('rec-loser').value;
+  const date = document.getElementById('rec-date').value;
+  const season = document.getElementById('rec-season').value;
+  const notes = document.getElementById('rec-notes').value.trim();
+  if (!wId) return showToast('Select a winner', 'error');
+  if (!lId) return showToast('Select a loser', 'error');
+  if (wId === lId) return showToast('Winner and loser must be different!', 'error');
+  if (!date) return showToast('Select a date', 'error');
+  const { error } = await sb.from('kite_matches').insert({
+    winner_id: wId, loser_id: lId, match_date: date, session_date: date,
+    season, notes, status: 'approved'
+  });
+  if (error) return showToast('Error: ' + error.message, 'error');
+  showToast('✂️ Cut recorded!', 'success');
+  document.getElementById('rec-winner').value = '';
+  document.getElementById('rec-loser').value = '';
+  document.getElementById('rec-notes').value = '';
+  await loadAll(); renderAll();
+}
+
+// --- Dashboard ---
+function renderDashboard() {
+  const page = document.getElementById('page-dashboard');
+  const all = state.matches, sm = seasonMatches();
+  const today = todayStr(), thisMonth = today.slice(0,7), thisYear = today.slice(0,4);
+  const todayM = all.filter(m => m.match_date === today);
+  const monthM = all.filter(m => m.match_date && m.match_date.startsWith(thisMonth));
+  const yearM = all.filter(m => m.match_date && m.match_date.startsWith(thisYear));
+  const lb = leaderboard(sm, state.players);
+  const champ = champion(sm), champD = champion(todayM), champM = champion(monthM), champY = champion(yearM);
+  const mostL = lb.length ? [...lb].sort((a,b) => b.losses - a.losses)[0] : null;
+  const bestW = lb.length ? [...lb].sort((a,b) => b.mxW - a.mxW)[0] : null;
+
+  const lbRows = lb.slice(0,10).map((p, i) => {
+    const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
+    const st = p.streak ? '<span class="streak ' + (p.sType==='W'?'win':'loss') + '">' + (p.sType==='W'?'🔥':'💧') + p.streak + '</span>' : '-';
+    return '<tr class="' + (i<3?'top'+(i+1):'') + '"><td><span class="rank-badge ' + rc + '">' + (i+1) + '</span><span class="player-name-cell" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer">' + esc(p.name) + '</span></td><td style="color:var(--green);font-weight:700">' + p.wins + '</td><td style="color:var(--red)">' + p.losses + '</td><td>' + p.winPct + '%</td><td>' + st + '</td></tr>';
+  }).join('');
+
+  page.innerHTML =
+    (champD ? '<div class="champion-card"><div class="period">⚡ Today\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cuts today</div></div>' : '') +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+      (champM ? '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
+      (champY ? '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:16px">' + esc(champY.name) + '</div><div class="stat">' + champY.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
+    '</div>' +
+    (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 Season Champion — ' + esc(state.activeSeason||'All Time') + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cuts · ' + (champ.wins+champ.losses>0?Math.round(champ.wins/(champ.wins+champ.losses)*100):0) + '% win rate</div></div>' : '') +
+    '<div class="card"><div class="card-title"><span class="dot"></span>League Stats</div><div class="stats-grid">' +
+      '<div class="stat-box highlight"><div class="val">' + sm.length + '</div><div class="lbl">Total Cuts</div></div>' +
+      '<div class="stat-box"><div class="val">' + state.players.filter(p=>p.active!==false).length + '</div><div class="lbl">Players</div></div>' +
+      '<div class="stat-box"><div class="val">' + (lb[0]?lb[0].wins:0) + '</div><div class="lbl">Most Cuts</div></div>' +
+      '<div class="stat-box"><div class="val">' + (bestW?bestW.mxW:0) + '</div><div class="lbl">Best Streak</div></div>' +
+    '</div></div>' +
+    '<div class="card" style="margin-bottom:12px"><div class="card-title"><span class="dot"></span>Special Awards</div>' +
+      (lb[0] ? '<div class="report-stat"><span class="key">🏆 Top Cutter</span><span class="value">' + esc(lb[0].name) + ' (' + lb[0].wins + ')</span></div>' : '') +
+      (mostL ? '<div class="report-stat"><span class="key">💧 Most Losses</span><span class="value">' + esc(mostL.name) + ' (' + mostL.losses + ')</span></div>' : '') +
+      (bestW ? '<div class="report-stat"><span class="key">🔥 Best Win Streak</span><span class="value">' + esc(bestW.name) + ' (' + bestW.mxW + ')</span></div>' : '') +
+    '</div>' +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Leaderboard — ' + esc(state.activeSeason||'All Time') + '</div>' +
+      (lb.length ? '<div style="overflow-x:auto"><table class="lb-table"><thead><tr><th>Player</th><th>✂️</th><th>❌</th><th>Win%</th><th>Streak</th></tr></thead><tbody>' + lbRows + '</tbody></table></div>' : '<div class="empty"><div class="icon">🏆</div><p>No matches yet</p></div>') +
+    '</div>' +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Head-to-Head Matrix</div>' + renderMatrix(sm) + '</div>';
+}
+
+function champion(matches) {
+  if (!matches.length) return null;
+  const c = {}; matches.forEach(m => { c[m.winner_id] = (c[m.winner_id]||0)+1; });
+  const id = Object.keys(c).sort((a,b) => c[b]-c[a])[0];
+  if (!id || !c[id]) return null;
+  const p = state.players.find(p => p.id === id);
+  return p ? {...p, wins: c[id]} : null;
+}
+
+function renderMatrix(matches) {
+  const active = state.players.filter(p => p.active !== false && matches.some(m => m.winner_id===p.id || m.loser_id===p.id));
+  if (active.length < 2) return '<p style="color:var(--text2);font-size:13px">Need at least 2 players with matches</p>';
+  const ids = active.map(p => p.id);
+  const mx = {}; ids.forEach(w => { mx[w]={}; ids.forEach(l => { mx[w][l]=0; }); });
+  matches.forEach(m => { if (mx[m.winner_id] && mx[m.winner_id][m.loser_id]!==undefined) mx[m.winner_id][m.loser_id]++; });
+  let maxV = 0; ids.forEach(w => ids.forEach(l => { if (w!==l && mx[w][l]>maxV) maxV=mx[w][l]; }));
+  const sh = n => n.length>8 ? n.slice(0,7)+'…' : n;
+  const hdr = '<tr><th>Cutter ↓ / Cut →</th>' + active.map(p => '<th>' + esc(sh(p.name)) + '</th>').join('') + '</tr>';
+  const rows = active.map(w => '<tr><td>' + esc(sh(w.name)) + '</td>' + active.map(l => {
+    if (w.id===l.id) return '<td class="self">—</td>';
+    const v = mx[w.id][l.id];
+    return '<td class="' + (v>0&&v===maxV?'hot':v>0?'':'cold') + '">' + (v||'') + '</td>';
+  }).join('') + '</tr>').join('');
+  return '<div class="matrix-wrap"><table class="matrix-table"><thead>' + hdr + '</thead><tbody>' + rows + '</tbody></table></div><p style="font-size:10px;color:var(--text2);margin-top:8px">Rows = cutter · Columns = cut · 🟡 = most cuts</p>';
+}
+
+// --- Reports ---
+function renderReports() {
+  const page = document.getElementById('page-reports');
+  const all = state.matches, sm = seasonMatches();
+  const today = todayStr(), thisMonth = today.slice(0,7), thisYear = today.slice(0,4);
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const lb = leaderboard(sm, state.players);
+  const filtered = filteredMatches();
+
+  page.innerHTML =
+    '<div class="tab-row" id="report-tabs">' +
+      '<button class="tab-btn active" onclick="setReportTab(\'overview\',this)">Overview</button>' +
+      '<button class="tab-btn" onclick="setReportTab(\'history\',this)">History</button>' +
+      '<button class="tab-btn" onclick="setReportTab(\'top10\',this)">Top 10</button>' +
+      '<button class="tab-btn" onclick="setReportTab(\'rivalries\',this)">Rivalries</button>' +
+    '</div>' +
+    '<div id="report-overview">' +
+      '<div class="card"><div class="card-title"><span class="dot"></span>Period Summary</div>' +
+        '<div class="report-stat"><span class="key">Today</span><span class="value">' + all.filter(m=>m.match_date===today).length + ' cuts</span></div>' +
+        '<div class="report-stat"><span class="key">This Week</span><span class="value">' + all.filter(m=>m.match_date&&new Date(m.match_date)>=weekAgo).length + ' cuts</span></div>' +
+        '<div class="report-stat"><span class="key">This Month</span><span class="value">' + all.filter(m=>m.match_date&&m.match_date.startsWith(thisMonth)).length + ' cuts</span></div>' +
+        '<div class="report-stat"><span class="key">This Year</span><span class="value">' + all.filter(m=>m.match_date&&m.match_date.startsWith(thisYear)).length + ' cuts</span></div>' +
+        '<div class="report-stat"><span class="key">Season Total</span><span class="value">' + sm.length + ' cuts</span></div>' +
+        '<div class="report-stat"><span class="key">All Time</span><span class="value">' + all.length + ' cuts</span></div>' +
+      '</div>' +
+      '<div class="card"><div class="card-title"><span class="dot"></span>Activity (Last 14 Days)</div><div class="chart-container"><canvas id="activity-chart"></canvas></div></div>' +
+      '<div class="card"><div class="card-title"><span class="dot"></span>Export Data</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-outline btn-sm" onclick="exportJSON()">📄 JSON</button><button class="btn btn-outline btn-sm" onclick="exportCSV()">📊 CSV</button></div></div>' +
+    '</div>' +
+    '<div id="report-history" style="display:none">' +
+      '<div class="search-bar"><input type="text" placeholder="Search by player name..." id="hist-search" value="' + esc(state.historyFilter.search) + '" oninput="updateFilter(\'search\',this.value)"/></div>' +
+      '<div class="filter-row"><button class="filter-chip ' + (!state.historyFilter.season?'active':'') + '" onclick="updateFilter(\'season\',\'\')">All Seasons</button>' +
+        state.seasons.map(s => '<button class="filter-chip ' + (state.historyFilter.season===s.name?'active':'') + '" onclick="updateFilter(\'season\',\'' + esc(s.name) + '\')">' + esc(s.name) + '</button>').join('') +
+      '</div>' +
+      (filtered.slice(0,50).map(m => matchHTML(m, true)).join('') || '<div class="empty"><div class="icon">🔍</div><p>No matches found</p></div>') +
+      (filtered.length>50?'<p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px">Showing 50 of '+filtered.length+' matches</p>':'') +
+    '</div>' +
+    '<div id="report-top10" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Top 10 — ' + esc(state.activeSeason||'All Time') + '</div>' +
+      (lb.slice(0,10).map((p,i) => '<div class="rivalry-badge" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer"><div><div class="rivalry-vs">' + (i+1) + '. ' + esc(p.name) + '</div><div style="font-size:11px;color:var(--text2)">' + p.wins + ' cuts · ' + p.losses + ' losses · ' + p.winPct + '%</div></div><div class="rivalry-score">' + p.wins + '<span style="font-size:12px;color:var(--text2)">/</span>' + p.losses + '</div></div>').join('') || '<div class="empty"><div class="icon">🏆</div><p>No data yet</p></div>') +
+    '</div></div>' +
+    '<div id="report-rivalries" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Biggest Rivalries</div>' +
+      (rivalries(sm).slice(0,5).map(r => '<div class="rivalry-badge"><div><div class="rivalry-vs">' + esc(r.p1) + ' vs ' + esc(r.p2) + '</div><div style="font-size:11px;color:var(--text2)">' + r.total + ' total matches</div></div><div class="rivalry-score">' + r.score + '</div></div>').join('') || '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>') +
+    '</div></div>';
+
+  setTimeout(() => renderChart(state.matches), 100);
+}
+
+function setReportTab(tab, btn) {
+  document.querySelectorAll('#report-tabs .tab-btn').forEach(b => b.className = 'tab-btn');
+  btn.className = 'tab-btn active';
+  ['overview','history','top10','rivalries'].forEach(t => {
+    const el = document.getElementById('report-' + t);
+    if (el) el.style.display = t===tab ? 'block' : 'none';
+  });
+  if (tab==='overview') setTimeout(() => renderChart(state.matches), 100);
+}
+
+function filteredMatches() {
+  let m = state.matches;
+  const f = state.historyFilter;
+  if (f.search) { const q = f.search.toLowerCase(); m = m.filter(x => playerName(x.winner_id).toLowerCase().includes(q) || playerName(x.loser_id).toLowerCase().includes(q)); }
+  if (f.season) m = m.filter(x => x.season === f.season);
+  return m;
+}
+
+function updateFilter(key, val) {
+  state.historyFilter[key] = val;
+  renderReports();
+  const activeTab = document.querySelector('#report-tabs .tab-btn.active');
+  if (activeTab) setTimeout(() => setReportTab('history', document.querySelectorAll('#report-tabs .tab-btn')[1]), 50);
+}
+
+function rivalries(matches) {
+  const pairs = {};
+  matches.forEach(m => {
+    const key = [m.winner_id, m.loser_id].sort().join('|');
+    if (!pairs[key]) pairs[key] = { counts: {}, total: 0 };
+    pairs[key].counts[m.winner_id] = (pairs[key].counts[m.winner_id]||0)+1;
+    pairs[key].total++;
+  });
+  return Object.entries(pairs).map(([key, d]) => {
+    const [i1,i2] = key.split('|');
+    return { p1: playerName(i1), p2: playerName(i2), total: d.total, score: (d.counts[i1]||0) + '-' + (d.counts[i2]||0) };
+  }).sort((a,b) => b.total - a.total);
+}
+
+function renderChart(matches) {
+  const ctx = document.getElementById('activity-chart');
+  if (!ctx) return;
+  if (state.charts.activity) state.charts.activity.destroy();
+  const labels=[], data=[];
+  for (let i=13; i>=0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const str = d.toISOString().split('T')[0];
+    labels.push(d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}));
+    data.push(matches.filter(m => m.match_date===str).length);
+  }
+  state.charts.activity = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Cuts', data, backgroundColor:'rgba(255,215,106,0.7)', borderColor:'#ffd76a', borderWidth:1, borderRadius:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}, y:{ticks:{color:'#94a3b8',stepSize:1},grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true} } }
+  });
+}
+
+// --- Settings ---
+function renderSettings() {
+  const page = document.getElementById('page-settings');
+  const active = state.players.filter(p => p.active !== false);
+  const inactive = state.players.filter(p => p.active === false);
+
+  const adminPanel = state.isAdmin ?
+    '<div class="card" style="border-color:rgba(255,215,106,.4)"><div class="card-title"><span class="dot"></span>🔐 Admin Panel <span style="font-size:11px;color:var(--green)">(Active)</span></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+      '<button class="btn btn-outline btn-sm" onclick="exportJSON()">📄 Export JSON</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="exportCSV()">📊 Export CSV</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="openModal(\'modal-merge-player\');populateMerge()">🔀 Merge Players</button>' +
+      '<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red);font-size:13px" onclick="confirmReset()">🔄 Reset Season</button>' +
+    '</div>' +
+    '<button class="btn btn-outline" style="margin-top:10px;color:var(--text2)" onclick="adminLogout()">🔓 Logout Admin</button></div>' :
+    '<div class="card"><div class="card-title"><span class="dot"></span>Admin Access</div>' +
+    '<p style="color:var(--text2);font-size:13px;margin-bottom:14px">Admin PIN required to manage players, edit matches, add seasons, and more.</p>' +
+    '<button class="btn btn-gold" onclick="openAdminModal()">🔐 Enter Admin PIN</button></div>';
+
+  const playerList = active.map(p => {
+    const s = playerStats(p.id, seasonMatches());
+    return '<div class="player-admin-item"><div class="info"><div class="name" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer">' + esc(p.name) + '</div><div class="sub">' + s.wins + 'W · ' + s.losses + 'L · ' + s.winPct + '%</div></div>' +
+      (state.isAdmin ? '<div class="actions"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditPlayer(\'' + p.id + '\',\'' + esc(p.name).replace(/'/g,"\'") + '\')">✏️</button><button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deactivate(\'' + p.id + '\')">💤</button><button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deletePlayer(\'' + p.id + '\')">🗑</button></div>' : '') + '</div>';
+  }).join('');
+
+  const inactiveList = inactive.map(p =>
+    '<div class="player-admin-item"><div class="info"><div class="name">' + esc(p.name) + ' <span class="inactive-tag">Inactive</span></div></div>' +
+    (state.isAdmin ? '<div class="actions"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="reactivate(\'' + p.id + '\')">✅</button><button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deletePlayer(\'' + p.id + '\')">🗑</button></div>' : '') + '</div>'
+  ).join('');
+
+  // Seasons list — admin gets Add Season button
+  const seasonsList = state.seasons.map(s =>
+    '<div class="report-stat"><span class="key">' + esc(s.name) + ' ' + (s.is_active ? '<span class="active-tag">Active</span>' : '') + '</span><span class="value">' + state.matches.filter(m=>m.season===s.name).length + ' cuts</span></div>'
+  ).join('');
+
+  page.innerHTML =
+    adminPanel +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Players (' + active.length + ')</div>' +
+      (playerList || '<div class="empty"><div class="icon">👤</div><p>No players yet</p></div>') +
+      '<button class="btn btn-outline" style="margin-top:12px" onclick="openModal(\'modal-add-player\')">+ Add Player</button>' +
+    '</div>' +
+    (inactive.length ? '<div class="card"><div class="card-title"><span class="dot"></span>Inactive Players</div>' + inactiveList + '</div>' : '') +
+    '<div class="card"><div class="card-title"><span class="dot"></span>Seasons</div>' +
+      seasonsList +
+      (state.isAdmin ? '<button class="btn btn-gold" style="margin-top:12px" onclick="openModal(\'modal-add-season\')">+ Add Season</button>' : '<p style="font-size:12px;color:var(--text2);margin-top:10px">Admin PIN required to add seasons</p>') +
+    '</div>' +
+    '<div class="card"><div class="card-title"><span class="dot"></span>App Info</div>' +
+      '<div class="report-stat"><span class="key">Version</span><span class="value">1.0.0</span></div>' +
+      '<div class="report-stat"><span class="key">Total Matches</span><span class="value">' + state.matches.length + '</span></div>' +
+      '<div class="report-stat"><span class="key">Total Players</span><span class="value">' + state.players.length + '</span></div>' +
+      '<div class="report-stat"><span class="key">Connection</span><span class="value" style="color:' + (state.isOnline?'var(--green)':'var(--red)') + '">' + (state.isOnline?'Online':'Offline') + '</span></div>' +
+    '</div>';
+}
+
+// --- Admin PIN ---
+let pinBuffer = '';
+function openAdminModal() {
+  if (state.isAdmin) { adminLogout(); return; }
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-error').style.display = 'none';
+  openModal('modal-admin-pin');
+}
+function pinKey(k) {
+  if (k==='clear') { pinBuffer = pinBuffer.slice(0,-1); }
+  else if (k==='ok') { checkPin(); return; }
+  else { if (pinBuffer.length>=4) return; pinBuffer += k; }
+  updatePinDots();
+  if (pinBuffer.length===4) setTimeout(checkPin, 150);
+}
+function updatePinDots() {
+  for (let i=0; i<4; i++) {
+    const d = document.getElementById('pd'+i);
+    if (d) d.className = 'pin-dot' + (i<pinBuffer.length?' filled':'');
+  }
+}
+function checkPin() {
+  if (pinBuffer === ADMIN_PIN) {
+    state.isAdmin = true;
+    document.getElementById('admin-toggle').className = 'admin-btn active';
+    closeModal('modal-admin-pin');
+    showToast('✅ Admin access granted', 'success');
+    renderAll();
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    pinBuffer = '';
+    updatePinDots();
+    setTimeout(() => { document.getElementById('pin-error').style.display = 'none'; }, 2000);
+  }
+}
+function adminLogout() {
+  state.isAdmin = false;
+  document.getElementById('admin-toggle').className = 'admin-btn';
+  showToast('Admin logged out', '');
+  renderAll();
+}
+
+// --- Players CRUD ---
+async function addPlayer() {
+  const nameEl = document.getElementById('new-player-name');
+  const name = nameEl.value.trim();
+  if (!name) return showToast('Enter a player name', 'error');
+  const nl = name.toLowerCase();
+  if (state.players.some(p => p.name.toLowerCase() === nl)) return showToast('Player already exists!', 'error');
+  const { error } = await sb.from('kite_players').insert({ name, name_lower: nl, active: true });
+  if (error) return showToast('Error: ' + error.message, 'error');
+  nameEl.value = '';
+  closeModal('modal-add-player');
+  showToast('✅ ' + name + ' added!', 'success');
+  await loadAll(); renderAll();
+}
+
+function openEditPlayer(id, name) {
+  document.getElementById('edit-player-id').value = id;
+  document.getElementById('edit-player-name').value = name;
+  openModal('modal-edit-player');
+}
+
+async function saveEditPlayer() {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const id = document.getElementById('edit-player-id').value;
+  const name = document.getElementById('edit-player-name').value.trim();
+  if (!name) return showToast('Name cannot be empty', 'error');
+  const nl = name.toLowerCase();
+  if (state.players.find(p => p.name.toLowerCase()===nl && p.id!==id)) return showToast('Name already taken!', 'error');
+  const { error } = await sb.from('kite_players').update({ name, name_lower: nl, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) return showToast('Error: ' + error.message, 'error');
+  closeModal('modal-edit-player');
+  showToast('✅ Player updated', 'success');
+  await loadAll(); renderAll();
+}
+
+async function deletePlayer(id) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const name = playerName(id);
+  if (!confirm('Delete ' + name + '? This will also delete all their match history.')) return;
+  await sb.from('kite_matches').delete().or('winner_id.eq.' + id + ',loser_id.eq.' + id);
+  const { error } = await sb.from('kite_players').delete().eq('id', id);
+  if (error) return showToast('Error: ' + error.message, 'error');
+  showToast('🗑 Player deleted', '');
+  await loadAll(); renderAll();
+}
+
+async function deactivate(id) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  await sb.from('kite_players').update({ active: false }).eq('id', id);
+  showToast('💤 Player deactivated', '');
+  await loadAll(); renderAll();
+}
+
+async function reactivate(id) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  await sb.from('kite_players').update({ active: true }).eq('id', id);
+  showToast('✅ Reactivated', 'success');
+  await loadAll(); renderAll();
+}
+
+function populateMerge() {
+  const opts = state.players.filter(p=>p.active!==false).map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+  document.getElementById('merge-keep').innerHTML = opts;
+  document.getElementById('merge-remove').innerHTML = opts;
+}
+
+async function mergePlayers() {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const keepId = document.getElementById('merge-keep').value;
+  const removeId = document.getElementById('merge-remove').value;
+  if (keepId === removeId) return showToast('Select different players', 'error');
+  if (!confirm('Merge "' + playerName(removeId) + '" into "' + playerName(keepId) + '"?')) return;
+  await sb.from('kite_matches').update({ winner_id: keepId }).eq('winner_id', removeId);
+  await sb.from('kite_matches').update({ loser_id: keepId }).eq('loser_id', removeId);
+  await sb.from('kite_players').delete().eq('id', removeId);
+  closeModal('modal-merge-player');
+  showToast('✅ Players merged', 'success');
+  await loadAll(); renderAll();
+}
+
+// --- Match CRUD ---
+function openEditMatch(id) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const m = state.matches.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('edit-match-id').value = id;
+  const pOpts = state.players.filter(p=>p.active!==false).map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+  const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (m.season===s.name?' selected':'') + '>' + esc(s.name) + '</option>').join('');
+  document.getElementById('edit-match-winner').innerHTML = pOpts;
+  document.getElementById('edit-match-loser').innerHTML = pOpts;
+  document.getElementById('edit-match-winner').value = m.winner_id;
+  document.getElementById('edit-match-loser').value = m.loser_id;
+  document.getElementById('edit-match-date').value = m.match_date || todayStr();
+  document.getElementById('edit-match-season').innerHTML = sOpts;
+  document.getElementById('edit-match-notes').value = m.notes || '';
+  openModal('modal-edit-match');
+}
+
+async function saveEditMatch() {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const id = document.getElementById('edit-match-id').value;
+  const wId = document.getElementById('edit-match-winner').value;
+  const lId = document.getElementById('edit-match-loser').value;
+  const date = document.getElementById('edit-match-date').value;
+  const season = document.getElementById('edit-match-season').value;
+  const notes = document.getElementById('edit-match-notes').value.trim();
+  if (wId === lId) return showToast('Winner and loser must be different!', 'error');
+  const { error } = await sb.from('kite_matches').update({ winner_id:wId, loser_id:lId, match_date:date, session_date:date, season, notes, updated_at:new Date().toISOString() }).eq('id', id);
+  if (error) return showToast('Error: ' + error.message, 'error');
+  closeModal('modal-edit-match');
+  showToast('✅ Match updated', 'success');
+  await loadAll(); renderAll();
+}
+
+async function deleteMatch(id) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  if (!confirm('Delete this match?')) return;
+  const { error } = await sb.from('kite_matches').delete().eq('id', id);
+  if (error) return showToast('Error: ' + error.message, 'error');
+  showToast('🗑 Match deleted', '');
+  await loadAll(); renderAll();
+}
+
+// --- Seasons ---
+async function addSeason() {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const name = document.getElementById('new-season-name').value.trim();
+  const makeActive = document.getElementById('new-season-active').value === 'true';
+  if (!name) return showToast('Enter a season name', 'error');
+  if (state.seasons.some(s => s.name.toLowerCase() === name.toLowerCase())) return showToast('Season already exists!', 'error');
+  if (makeActive) {
+    await sb.from('kite_seasons').update({ is_active: false }).neq('id', '00000000-0000-0000-0000-000000000000');
+  }
+  const { error } = await sb.from('kite_seasons').insert({ name, is_active: makeActive });
+  if (error) return showToast('Error: ' + error.message, 'error');
+  document.getElementById('new-season-name').value = '';
+  closeModal('modal-add-season');
+  showToast('✅ Season "' + name + '" created', 'success');
+  if (makeActive) state.activeSeason = name;
+  await loadAll(); renderAll();
+}
+
+async function confirmReset() {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  const season = state.activeSeason || 'current season';
+  if (!confirm('Reset ' + season + '? ALL MATCHES will be deleted. Type RESET to confirm.')) return;
+  const conf = prompt('Type RESET to confirm:');
+  if (conf !== 'RESET') return showToast('Reset cancelled', '');
+  await sb.from('kite_matches').delete().eq('season', season);
+  showToast('🔄 Season reset', '');
+  await loadAll(); renderAll();
+}
+
+// --- Player Profile ---
+function openProfile(playerId) {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return;
+  const all = getPlayerStats ? null : null;
+  const aS = playerStats(playerId, state.matches);
+  const sS = playerStats(playerId, seasonMatches());
+  const wins = state.matches.filter(m => m.winner_id === playerId);
+  const losses = state.matches.filter(m => m.loser_id === playerId);
+  const vC = {}; wins.forEach(m => { vC[m.loser_id]=(vC[m.loser_id]||0)+1; });
+  const nC = {}; losses.forEach(m => { nC[m.winner_id]=(nC[m.winner_id]||0)+1; });
+  const tv = Object.entries(vC).sort((a,b)=>b[1]-a[1])[0];
+  const tn = Object.entries(nC).sort((a,b)=>b[1]-a[1])[0];
+  const initials = player.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  const recent = state.matches.filter(m => m.winner_id===playerId||m.loser_id===playerId).slice(0,10);
+
+  document.getElementById('player-profile-content').innerHTML =
+    '<div class="profile-header"><div class="profile-avatar">' + initials + '</div><div class="profile-name">' + esc(player.name) + '</div><div class="profile-status">' + (player.active!==false?'<span class="active-tag">Active</span>':'<span class="inactive-tag">Inactive</span>') + '</div></div>' +
+    '<div class="stats-grid" style="margin-bottom:12px"><div class="stat-box highlight"><div class="val">' + aS.wins + '</div><div class="lbl">All Cuts</div></div><div class="stat-box"><div class="val">' + aS.losses + '</div><div class="lbl">All Losses</div></div><div class="stat-box"><div class="val">' + aS.winPct + '%</div><div class="lbl">Win Rate</div></div><div class="stat-box"><div class="val">' + aS.mxW + '</div><div class="lbl">Best Streak</div></div></div>' +
+    '<div class="card" style="margin-bottom:12px"><div class="card-title"><span class="dot"></span>Season Stats</div>' +
+      '<div class="report-stat"><span class="key">Cuts</span><span class="value">' + sS.wins + '</span></div>' +
+      '<div class="report-stat"><span class="key">Losses</span><span class="value">' + sS.losses + '</span></div>' +
+      '<div class="report-stat"><span class="key">Win Rate</span><span class="value">' + sS.winPct + '%</span></div>' +
+      '<div class="report-stat"><span class="key">Current Streak</span><span class="value">' + (sS.streak?'<span class="streak '+(sS.sType==='W'?'win':'loss')+'">'+(sS.sType==='W'?'🔥':'💧')+sS.streak+'</span>':'None') + '</span></div>' +
+    '</div>' +
+    (tv||tn?'<div class="card" style="margin-bottom:12px"><div class="card-title"><span class="dot"></span>Key Stats</div>' +
+      (tv?'<div class="report-stat"><span class="key">Favourite victim</span><span class="value">' + esc(playerName(tv[0])) + ' (' + tv[1] + 'x)</span></div>':'') +
+      (tn?'<div class="report-stat"><span class="key">Nemesis</span><span class="value">' + esc(playerName(tn[0])) + ' (' + tn[1] + 'x)</span></div>':'') +
+    '</div>':'') +
+    '<div class="card-title" style="margin-bottom:8px"><span class="dot"></span>Recent Matches</div>' +
+    (recent.map(m => {
+      const isW = m.winner_id===playerId;
+      return '<div class="match-item"><span style="font-size:18px">' + (isW?'✂️':'❌') + '</span><div class="match-players"><div style="font-weight:700;color:' + (isW?'var(--green)':'var(--red)') + '">' + (isW?'Cut '+esc(playerName(m.loser_id)):'Cut by '+esc(playerName(m.winner_id))) + '</div></div><div class="match-meta"><div class="match-date">' + fmtDate(m.match_date) + '</div><div class="match-season">' + esc(m.season||'') + '</div></div></div>';
+    }).join('') || '<div class="empty"><div class="icon">📋</div><p>No matches yet</p></div>');
+
+  openModal('modal-player-profile');
+}
+
+// --- Export ---
+function exportJSON() {
+  const data = { exported: new Date().toISOString(), players: state.players, matches: state.matches, seasons: state.seasons };
+  dl('bakss-kite.json', JSON.stringify(data, null, 2), 'application/json');
+  showToast('📄 Exported', 'success');
+}
+function exportCSV() {
+  const rows = [['Date','Season','Winner','Loser','Notes']];
+  state.matches.forEach(m => rows.push([m.match_date||'', m.season||'', playerName(m.winner_id), playerName(m.loser_id), m.notes||'']));
+  dl('bakss-kite.csv', rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'), 'text/csv');
+  showToast('📊 Exported', 'success');
+}
+function dl(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// --- Modal helpers ---
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); }));
+
+// --- Toast ---
+let tT;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type?' '+type:'');
+  clearTimeout(tT);
+  tT = setTimeout(() => { t.className=''; }, 3000);
+}
+
+// --- PWA ---
+function registerSW() {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+init();
+</script>
+</body>
+</html>
