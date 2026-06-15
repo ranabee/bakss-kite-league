@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.0.3 -->
+<title>BAKSS Kite Manager</title><!-- v1.0.4 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -576,20 +576,23 @@ function renderDashboard() {
   }).join('');
 
   // Prominent date picker bar — always first, always visible
-  const datePicker =
-    '<div style="background:' + (selectedDate ? 'linear-gradient(135deg,rgba(255,215,106,.18),rgba(255,215,106,.06))' : 'var(--card2)') + ';border:1.5px solid ' + (selectedDate ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">' +
-      '<div style="display:flex;align-items:center;gap:10px">' +
-        '<span style="font-size:20px;flex-shrink:0">📅</span>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:11px;font-weight:700;color:' + (selectedDate ? 'var(--gold)' : 'var(--text2)') + ';text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">' +
-            (selectedDate ? '🔍 Filtered: ' + fmtDate(selectedDate) : 'Filter by Date') +
-          '</div>' +
-          '<input type="date" id="dash-date-input" value="' + (selectedDate||'') + '" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:1.5px solid ' + (selectedDate?'var(--gold)':'var(--border)') + ';color:var(--text);border-radius:8px;padding:10px 12px;font-size:15px;outline:none"/>' +
+  // Bold, unmissable date picker - full gold card so it cannot be missed on any screen
+  const datePicker = selectedDate
+    ? // ACTIVE state: bright gold card
+      '<div style="background:linear-gradient(135deg,rgba(255,215,106,.22),rgba(255,215,106,.08));border:2.5px solid var(--gold);border-radius:var(--radius);padding:16px;margin-bottom:14px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+          '<div style="font-size:13px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px">📅 Viewing: ' + fmtDate(selectedDate) + '</div>' +
+          '<button onclick="clearDashboardDate()" style="background:var(--red);border:none;color:#fff;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">✕ Clear</button>' +
         '</div>' +
-        (selectedDate ? '<button onclick="clearDashboardDate()" style="background:rgba(239,68,68,.15);border:1.5px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">✕ Clear</button>' : '') +
-      '</div>' +
-      (selectedDate ? '<div style="margin-top:10px;font-size:13px;color:var(--gold);font-weight:600">' + dayMatches.length + ' cut' + (dayMatches.length!==1?'s':'') + ' recorded on this date · tap ✕ to return to full view</div>' : '<div style="margin-top:6px;font-size:12px;color:var(--text2)">Pick any date to see that day\'s champion, leaderboard & head-to-head</div>') +
-    '</div>';
+        '<input type="date" id="dash-date-input" value="' + selectedDate + '" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:2px solid var(--gold);color:var(--text);border-radius:8px;padding:12px 14px;font-size:16px;font-weight:600;outline:none"/>' +
+        '<div style="margin-top:10px;font-size:13px;color:var(--gold);font-weight:700;text-align:center">' + dayMatches.length + ' cut' + (dayMatches.length!==1?'s':'') + ' on this date · all data below filtered to this day</div>' +
+      '</div>'
+    : // DEFAULT state: solid white-on-card, impossible to miss
+      '<div style="background:var(--card);border:2.5px solid var(--gold);border-radius:var(--radius);padding:16px;margin-bottom:14px">' +
+        '<div style="font-size:13px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📅 Filter Dashboard by Date</div>' +
+        '<input type="date" id="dash-date-input" value="" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:2px solid var(--gold);color:var(--text);border-radius:8px;padding:12px 14px;font-size:16px;font-weight:600;outline:none;-webkit-appearance:none;appearance:none"/>' +
+        '<div style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center">Tap the field above → pick a date → entire dashboard updates to that day</div>' +
+      '</div>';
 
   page.innerHTML =
     datePicker +
