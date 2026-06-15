@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title>
+<title>BAKSS Kite Manager</title><!-- v1.0.3 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -472,7 +472,7 @@ function renderRecord() {
   const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===state.activeSeason?' selected':'') + '>' + esc(s.name) + '</option>').join('');
   const today = todayStr();
   const todayCount = sm.filter(m => m.match_date === today).length;
-  const recent = sm.slice(0,20).map(m => matchHTML(m, false)).join('');
+  const recent = sm.slice(0,20).map(m => matchHTML(m, state.isAdmin)).join('');
 
   page.innerHTML =
     '<div class="card">' +
@@ -548,29 +548,18 @@ function clearDashboardDate() {
 
 function renderDashboard() {
   const page = document.getElementById('page-dashboard');
-
-  // Determine which matches to use based on date filter + season filter
   const all = state.matches;
   const baseMatches = state.activeSeason ? all.filter(m => m.season === state.activeSeason) : all;
   const selectedDate = state.dashboardDate;
-  // For date-specific view use only that date; otherwise use full season/all data
   const viewMatches = selectedDate ? all.filter(m => m.match_date === selectedDate) : baseMatches;
-
   const today = todayStr();
   const thisMonth = today.slice(0,7);
   const thisYear = today.slice(0,4);
 
-  // These always reflect the selected date or today if no date selected
   const dateLabel = selectedDate ? fmtDate(selectedDate) : 'Today';
-  const dayMatches = selectedDate
-    ? all.filter(m => m.match_date === selectedDate)
-    : all.filter(m => m.match_date === today);
-  const monthMatches = selectedDate
-    ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,7)))
-    : all.filter(m => m.match_date && m.match_date.startsWith(thisMonth));
-  const yearMatches = selectedDate
-    ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,4)))
-    : all.filter(m => m.match_date && m.match_date.startsWith(thisYear));
+  const dayMatches = selectedDate ? all.filter(m => m.match_date === selectedDate) : all.filter(m => m.match_date === today);
+  const monthMatches = selectedDate ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,7))) : all.filter(m => m.match_date && m.match_date.startsWith(thisMonth));
+  const yearMatches = selectedDate ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,4))) : all.filter(m => m.match_date && m.match_date.startsWith(thisYear));
 
   const lb = leaderboard(viewMatches, state.players);
   const champ = champion(viewMatches);
@@ -586,30 +575,32 @@ function renderDashboard() {
     return '<tr class="' + (i<3?'top'+(i+1):'') + '"><td><span class="rank-badge ' + rc + '">' + (i+1) + '</span><span class="player-name-cell" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer">' + esc(p.name) + '</span></td><td style="color:var(--green);font-weight:700">' + p.wins + '</td><td style="color:var(--red)">' + p.losses + '</td><td>' + p.winPct + '%</td><td>' + st + '</td></tr>';
   }).join('');
 
-  // Date selector card
-  const dateSelectorHTML =
-    '<div class="card" style="margin-bottom:12px;border-color:' + (selectedDate ? 'var(--gold)' : 'var(--border)') + '">' +
-      '<div class="card-title"><span class="dot"></span>📅 View by Date</div>' +
-      '<div style="display:flex;gap:10px;align-items:center">' +
-        '<input type="date" id="dash-date-input" value="' + (selectedDate || '') + '" max="' + today + '" oninput="setDashboardDate(this.value)" style="flex:1;padding:11px 14px"/>' +
-        (selectedDate
-          ? '<button class="btn btn-outline btn-sm" onclick="clearDashboardDate()" style="white-space:nowrap;flex-shrink:0">✕ Clear</button>'
-          : '') +
+  // Prominent date picker bar — always first, always visible
+  const datePicker =
+    '<div style="background:' + (selectedDate ? 'linear-gradient(135deg,rgba(255,215,106,.18),rgba(255,215,106,.06))' : 'var(--card2)') + ';border:1.5px solid ' + (selectedDate ? 'var(--gold)' : 'var(--border)') + ';border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="font-size:20px;flex-shrink:0">📅</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:11px;font-weight:700;color:' + (selectedDate ? 'var(--gold)' : 'var(--text2)') + ';text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">' +
+            (selectedDate ? '🔍 Filtered: ' + fmtDate(selectedDate) : 'Filter by Date') +
+          '</div>' +
+          '<input type="date" id="dash-date-input" value="' + (selectedDate||'') + '" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:1.5px solid ' + (selectedDate?'var(--gold)':'var(--border)') + ';color:var(--text);border-radius:8px;padding:10px 12px;font-size:15px;outline:none"/>' +
+        '</div>' +
+        (selectedDate ? '<button onclick="clearDashboardDate()" style="background:rgba(239,68,68,.15);border:1.5px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">✕ Clear</button>' : '') +
       '</div>' +
-      (selectedDate
-        ? '<div style="margin-top:10px;padding:8px 12px;background:rgba(255,215,106,.1);border-radius:8px;font-size:13px;color:var(--gold);font-weight:700">Showing data for ' + fmtDate(selectedDate) + ' — ' + dayMatches.length + ' cut' + (dayMatches.length!==1?'s':'') + ' on this date</div>'
-        : '<div style="margin-top:8px;font-size:12px;color:var(--text2)">Select a date to see that day\'s full stats, leaderboard and head-to-head</div>') +
+      (selectedDate ? '<div style="margin-top:10px;font-size:13px;color:var(--gold);font-weight:600">' + dayMatches.length + ' cut' + (dayMatches.length!==1?'s':'') + ' recorded on this date · tap ✕ to return to full view</div>' : '<div style="margin-top:6px;font-size:12px;color:var(--text2)">Pick any date to see that day\'s champion, leaderboard & head-to-head</div>') +
     '</div>';
 
   page.innerHTML =
-    dateSelectorHTML +
-    (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cut' + (champD.wins!==1?'s':'') + ' on ' + dateLabel.toLowerCase() + '</div></div>' : '') +
+    datePicker +
+    (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cut' + (champD.wins!==1?'s':'') + ' · ' + dateLabel + '</div></div>' :
+      (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
       (champM ? '<div class="champion-card"><div class="period">📅 ' + (selectedDate ? selectedDate.slice(0,7) : 'This Month') + '</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
       (champY ? '<div class="champion-card"><div class="period">🗓️ ' + (selectedDate ? selectedDate.slice(0,4) : 'This Year') + '</div><div class="name" style="font-size:16px">' + esc(champY.name) + '</div><div class="stat">' + champY.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
     '</div>' +
-    (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 ' + (selectedDate ? 'Champion on ' + fmtDate(selectedDate) : 'Season Champion') + ' — ' + esc(state.activeSeason||'All Time') + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cuts · ' + (champ.wins+champ.losses>0?Math.round(champ.wins/(champ.wins+champ.losses)*100):0) + '% win rate</div></div>' : (selectedDate ? '<div class="card" style="text-align:center;padding:24px"><div style="font-size:32px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts recorded on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
-    '<div class="card"><div class="card-title"><span class="dot"></span>' + (selectedDate ? '📊 Stats for ' + fmtDate(selectedDate) : '📊 League Stats') + '</div><div class="stats-grid">' +
+    (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 ' + (selectedDate ? 'Champion · ' + fmtDate(selectedDate) : 'Season Champion · ' + esc(state.activeSeason||'All Time')) + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cuts · ' + (champ.wins+champ.losses>0?Math.round(champ.wins/(champ.wins+champ.losses)*100):0) + '% win rate</div></div>' : '') +
+    '<div class="card"><div class="card-title"><span class="dot"></span>' + (selectedDate ? 'Stats · ' + fmtDate(selectedDate) : 'League Stats') + '</div><div class="stats-grid">' +
       '<div class="stat-box highlight"><div class="val">' + viewMatches.length + '</div><div class="lbl">' + (selectedDate ? 'Cuts' : 'Season Cuts') + '</div></div>' +
       '<div class="stat-box"><div class="val">' + state.players.filter(p=>p.active!==false).length + '</div><div class="lbl">Players</div></div>' +
       '<div class="stat-box"><div class="val">' + (lb[0]?lb[0].wins:0) + '</div><div class="lbl">Top Cuts</div></div>' +
