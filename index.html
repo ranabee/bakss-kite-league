@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.0.4 -->
+<title>BAKSS Kite Manager</title><!-- v1.0.5 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -207,6 +207,18 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="admin-btn" id="admin-toggle" onclick="openAdminModal()">⚙️ Admin</button>
   </div>
   <div id="season-bar"></div>
+  <!-- STATIC date bar - always visible on dashboard, no JS needed to render it -->
+  <div id="dash-date-bar" style="display:none;background:#1f2937;border-bottom:3px solid #ffd76a;padding:12px 16px">
+    <div style="font-size:11px;font-weight:800;color:#ffd76a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📅 Filter Dashboard by Date</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input type="date" id="dash-date-input"
+        style="flex:1;background:#08101f;border:2px solid #ffd76a;color:#ffffff;border-radius:8px;padding:11px 12px;font-size:16px;font-weight:700;outline:none;-webkit-appearance:none;appearance:none;min-height:48px"
+        onchange="setDashboardDate(this.value)"/>
+      <button id="dash-clear-btn" onclick="clearDashboardDate()"
+        style="display:none;background:#ef4444;border:none;color:#fff;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:48px">✕ Clear</button>
+    </div>
+    <div id="dash-date-label" style="margin-top:8px;font-size:12px;color:#94a3b8;text-align:center">Pick a date → all stats below filter to that day</div>
+  </div>
   <div id="content">
     <div id="page-record" class="section-active"></div>
     <div id="page-dashboard" class="section-hidden"></div>
@@ -392,6 +404,9 @@ function showPage(page) {
   document.querySelectorAll('.nav-btn').forEach((btn, i) => {
     btn.className = 'nav-btn' + (['record','dashboard','reports','settings'][i] === page ? ' active' : '');
   });
+  // Show date bar only on dashboard
+  const dateBar = document.getElementById('dash-date-bar');
+  if (dateBar) dateBar.style.display = page === 'dashboard' ? 'block' : 'none';
   renderPage(page);
 }
 
@@ -536,14 +551,44 @@ async function recordCut() {
 // --- Dashboard ---
 function setDashboardDate(val) {
   state.dashboardDate = val || null;
+  updateDateBar();
   renderDashboard();
 }
 
 function clearDashboardDate() {
   state.dashboardDate = null;
-  const el = document.getElementById('dash-date-input');
-  if (el) el.value = '';
+  const inp = document.getElementById('dash-date-input');
+  if (inp) inp.value = '';
+  updateDateBar();
   renderDashboard();
+}
+
+function updateDateBar() {
+  const d = state.dashboardDate;
+  const bar = document.getElementById('dash-date-bar');
+  const clearBtn = document.getElementById('dash-clear-btn');
+  const label = document.getElementById('dash-date-label');
+  if (!bar) return;
+  if (d) {
+    bar.style.borderColor = '#ffd76a';
+    bar.style.background = 'linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.06))';
+    if (clearBtn) clearBtn.style.display = 'block';
+    const cnt = state.matches.filter(m => m.match_date === d).length;
+    if (label) {
+      label.style.color = '#ffd76a';
+      label.style.fontWeight = '700';
+      label.textContent = '🔍 Showing: ' + fmtDate(d) + ' — ' + cnt + ' cut' + (cnt!==1?'s':'') + ' · tap ✕ Clear to reset';
+    }
+  } else {
+    bar.style.borderColor = '#ffd76a';
+    bar.style.background = '#1f2937';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (label) {
+      label.style.color = '#94a3b8';
+      label.style.fontWeight = '400';
+      label.textContent = 'Pick a date → all stats below filter to that day';
+    }
+  }
 }
 
 function renderDashboard() {
@@ -575,27 +620,7 @@ function renderDashboard() {
     return '<tr class="' + (i<3?'top'+(i+1):'') + '"><td><span class="rank-badge ' + rc + '">' + (i+1) + '</span><span class="player-name-cell" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer">' + esc(p.name) + '</span></td><td style="color:var(--green);font-weight:700">' + p.wins + '</td><td style="color:var(--red)">' + p.losses + '</td><td>' + p.winPct + '%</td><td>' + st + '</td></tr>';
   }).join('');
 
-  // Prominent date picker bar — always first, always visible
-  // Bold, unmissable date picker - full gold card so it cannot be missed on any screen
-  const datePicker = selectedDate
-    ? // ACTIVE state: bright gold card
-      '<div style="background:linear-gradient(135deg,rgba(255,215,106,.22),rgba(255,215,106,.08));border:2.5px solid var(--gold);border-radius:var(--radius);padding:16px;margin-bottom:14px">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
-          '<div style="font-size:13px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px">📅 Viewing: ' + fmtDate(selectedDate) + '</div>' +
-          '<button onclick="clearDashboardDate()" style="background:var(--red);border:none;color:#fff;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer">✕ Clear</button>' +
-        '</div>' +
-        '<input type="date" id="dash-date-input" value="' + selectedDate + '" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:2px solid var(--gold);color:var(--text);border-radius:8px;padding:12px 14px;font-size:16px;font-weight:600;outline:none"/>' +
-        '<div style="margin-top:10px;font-size:13px;color:var(--gold);font-weight:700;text-align:center">' + dayMatches.length + ' cut' + (dayMatches.length!==1?'s':'') + ' on this date · all data below filtered to this day</div>' +
-      '</div>'
-    : // DEFAULT state: solid white-on-card, impossible to miss
-      '<div style="background:var(--card);border:2.5px solid var(--gold);border-radius:var(--radius);padding:16px;margin-bottom:14px">' +
-        '<div style="font-size:13px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📅 Filter Dashboard by Date</div>' +
-        '<input type="date" id="dash-date-input" value="" max="' + today + '" onchange="setDashboardDate(this.value)" style="width:100%;background:var(--bg);border:2px solid var(--gold);color:var(--text);border-radius:8px;padding:12px 14px;font-size:16px;font-weight:600;outline:none;-webkit-appearance:none;appearance:none"/>' +
-        '<div style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center">Tap the field above → pick a date → entire dashboard updates to that day</div>' +
-      '</div>';
-
   page.innerHTML =
-    datePicker +
     (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cut' + (champD.wins!==1?'s':'') + ' · ' + dateLabel + '</div></div>' :
       (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
