@@ -27,3 +27,4 @@ A production-grade kite sparring league management app built with:
 - Deactivate/reactivate players
 - Reset seasons
 - Export data backups
+
