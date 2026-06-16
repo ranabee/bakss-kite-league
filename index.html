@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.0.6 -->
+<title>BAKSS Kite Manager</title><!-- v1.0.7 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -192,8 +192,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   #content{max-width:640px;margin:0 auto}
   #nav{max-width:640px;left:50%;transform:translateX(-50%)}
   .stats-grid{grid-template-columns:repeat(4,1fr)}
-
-/* Date bar only visible on dashboard - CSS controlled, JS-cache proof */
+}
+/* Date bar only visible on dashboard - outside media query so applies to ALL screen sizes */
 body:not([data-page="dashboard"]) #dash-date-bar{display:none}
 </style>
 </head>
