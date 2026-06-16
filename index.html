@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.0 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.1 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -45,12 +45,13 @@ body.day-theme{
   --border:#b8c8db;
 }
 /* === DAY THEME OVERRIDES === */
-body.day-theme #header{background:linear-gradient(135deg,#1e40af,#1d4ed8) !important}
+/* Header stays dark (original) - only text adapts */
+body.day-theme #header{background:linear-gradient(135deg,#0a1628,#142038) !important}
 body.day-theme #header .title-area h1{color:#ffd76a}
-body.day-theme #header .title-area p{color:#bfdbfe}
-body.day-theme #header .admin-btn{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#ffffff}
-body.day-theme #header .admin-btn.active{background:#ffd76a;border-color:#ffd76a;color:#1e3a8a}
-body.day-theme #conn-indicator{background:#4ade80}
+body.day-theme #header .title-area p{color:#94a3b8}
+body.day-theme #header .admin-btn{background:transparent;border-color:var(--border);color:#94a3b8}
+body.day-theme #header .admin-btn.active{background:#ffd76a;border-color:#ffd76a;color:#000}
+body.day-theme #conn-indicator{background:#22c55e}
 body.day-theme #season-bar{background:#dbeafe;border-bottom-color:#93c5fd}
 body.day-theme .season-pill{background:rgba(255,255,255,.7);border-color:#93c5fd;color:#1e3a8a;font-weight:600}
 body.day-theme .season-pill.active{background:#1e40af;color:#fff;border-color:#1e40af}
@@ -63,11 +64,15 @@ body.day-theme .card{background:#ffffff;border-color:#dde8f5}
 body.day-theme .card-title{color:#4b6080}
 body.day-theme .card-title .dot{background:#1e40af}
 /* Champion cards - keep dark for contrast */
-body.day-theme .champion-card{background:linear-gradient(135deg,#1e3a8a,#1e40af);border-color:rgba(255,215,106,.5)}
-body.day-theme .champion-card .name{color:#ffffff}
-body.day-theme .champion-card .period{color:#ffd76a}
-body.day-theme .champion-card .stat{color:#bfdbfe}
-body.day-theme .champion-card::before{opacity:.1}
+body.day-theme .champion-card{background:linear-gradient(135deg,#1e3a8a,#1e40af) !important;border-color:rgba(255,215,106,.6) !important}
+body.day-theme .champion-card .name{color:#ffffff !important}
+body.day-theme .champion-card .period{color:#ffd76a !important}
+body.day-theme .champion-card .stat{color:#bfdbfe !important}
+body.day-theme .champion-card::before{opacity:.15;color:#ffd76a}
+/* Season champion card (gold border) */
+body.day-theme .champion-card[style*="gold"]{background:linear-gradient(135deg,rgba(255,215,106,.2),rgba(255,215,106,.08)) !important;border-color:var(--gold) !important}
+body.day-theme .champion-card[style*="gold"] .name{color:#1e3a8a !important}
+body.day-theme .champion-card[style*="gold"] .stat{color:#4b6080 !important}
 /* Stat boxes */
 body.day-theme .stat-box{background:#f0f6ff;border-color:#dde8f5}
 body.day-theme .stat-box .val{color:#1e40af}
@@ -1418,7 +1423,8 @@ function renderPlayerCheckboxes(selected) {
   const activePlayers = state.players.filter(p => p.active !== false);
   box.innerHTML = activePlayers.map(p => {
     const isSel = selected.includes(p.id);
-    return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" onclick="toggleTeamPlayer(this,' + JSON.stringify(p.id) + ')">' +
+    const pId = p.id.replace(/'/g, '');
+    return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" onclick="toggleTeamPlayer(this,\'' + pId + '\')">' +
       '<span>' + (isSel?'\u2705':'\u2B1C') + '</span>' + esc(p.name) + '</div>';
   }).join('');
   updateTeamCount();
@@ -1493,7 +1499,13 @@ function renderTeamScoreCard(dateMatches) {
   const d = state.dashboardDate || todayStr();
   const teamsOnDate = state.teams.filter(t => t.team_date === d);
 
-  if (!teamsOnDate.length) return '';
+  if (!teamsOnDate.length) {
+    // Show a placeholder so users know teams exist but aren't set for this date
+    return '<div class="team-score-card" style="opacity:.7">' +
+      '<div class="card-title" style="color:var(--gold);margin-bottom:6px"><span class="dot"></span>🪁 Team Score</div>' +
+      '<p style="color:var(--text2);font-size:13px;text-align:center;padding:8px 0">No teams set for ' + fmtDate(d) + '.<br>Go to <b style="color:var(--gold)">Settings → Teams</b> to create teams for today.</p>' +
+    '</div>';
+  }
 
   if (teamsOnDate.length === 1) {
     const t = teamsOnDate[0];
