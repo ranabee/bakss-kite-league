@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.1.0 -->
+<title>BAKSS Kite Manager</title><!-- v1.1.1 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -216,9 +216,15 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
   <div id="dash-date-bar" style="background:#1f2937;border-bottom:3px solid #ffd76a;padding:12px 16px">
     <div style="font-size:11px;font-weight:800;color:#ffd76a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📅 Filter Dashboard by Date</div>
     <div style="display:flex;gap:10px;align-items:center">
-      <input type="date" id="dash-date-input"
-        style="flex:1;background:#08101f;border:2px solid #ffd76a;color:#ffffff;border-radius:8px;padding:11px 12px;font-size:16px;font-weight:700;outline:none;-webkit-appearance:none;appearance:none;min-height:48px"
-        onchange="setDashboardDate(this.value)"/>
+      <div onclick="document.getElementById('dash-date-input').showPicker?document.getElementById('dash-date-input').showPicker():document.getElementById('dash-date-input').click()" style="flex:1;cursor:pointer;position:relative">
+        <input type="date" id="dash-date-input"
+          style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"
+          onchange="setDashboardDate(this.value)"/>
+        <div id="dash-date-display" style="background:#08101f;border:2px solid #ffd76a;color:#ffffff;border-radius:8px;padding:11px 12px;font-size:16px;font-weight:700;min-height:48px;display:flex;align-items:center;justify-content:space-between;pointer-events:none">
+          <span id="dash-date-text">Tap to pick a date</span>
+          <span style="font-size:20px">📅</span>
+        </div>
+      </div>
       <button id="dash-clear-btn" onclick="clearDashboardDate()"
         style="display:none;background:#ef4444;border:none;color:#fff;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:48px">✕ Clear</button>
     </div>
@@ -289,7 +295,15 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
     <input type="hidden" id="edit-match-id"/>
     <div class="form-group"><label>Winner</label><select id="edit-match-winner"></select></div>
     <div class="form-group"><label>Loser</label><select id="edit-match-loser"></select></div>
-    <div class="form-group"><label>Date</label><input type="date" id="edit-match-date"/></div>
+    <div class="form-group"><label>Date</label>
+    <div onclick="document.getElementById('edit-match-date').showPicker?document.getElementById('edit-match-date').showPicker():document.getElementById('edit-match-date').click()" style="position:relative;cursor:pointer">
+      <input type="date" id="edit-match-date" onchange="document.getElementById('edit-date-display').textContent=this.value?new Date(this.value+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'Tap to pick'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/>
+      <div style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none">
+        <span id="edit-date-display">Tap to pick a date</span>
+        <span style="font-size:18px">📅</span>
+      </div>
+    </div>
+  </div>
     <div class="form-group"><label>Season</label><select id="edit-match-season"></select></div>
     <div class="form-group"><label>Notes</label><textarea id="edit-match-notes" placeholder="Optional notes"></textarea></div>
     <div style="display:flex;gap:10px">
@@ -511,7 +525,14 @@ function renderRecord() {
       '<div class="card-title"><span class="dot"></span>Record Cut ✂️ <span class="rt-dot"></span></div>' +
       '<div class="form-group"><label>Winner (Cutter) 🏆</label><select id="rec-winner"><option value="">Select winner...</option>' + pOpts + '</select></div>' +
       '<div class="form-group"><label>Loser (Cut) ❌</label><select id="rec-loser"><option value="">Select loser...</option>' + pOpts + '</select></div>' +
-      '<div class="form-group"><label>Date</label><input type="date" id="rec-date" value="' + today + '"/></div>' +
+      '<div class="form-group"><label>Date</label>' +
+      '<div onclick="document.getElementById(\'rec-date\').showPicker?document.getElementById(\'rec-date\').showPicker():document.getElementById(\'rec-date\').click()" style="position:relative;cursor:pointer">' +
+        '<input type="date" id="rec-date" value="' + today + '" onchange="document.getElementById(\'rec-date-display\').textContent=this.value?new Date(this.value+\'T00:00:00\').toLocaleDateString(\'en-GB\',{day:\'2-digit\',month:\'short\',year:\'numeric\'}):'Tap to pick a date'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/>' +
+        '<div style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none">' +
+          '<span id="rec-date-display">' + new Date(today+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + '</span>' +
+          '<span style="font-size:18px">📅</span>' +
+        '</div>' +
+      '</div></div>' +
       '<div class="form-group"><label>Season</label><select id="rec-season">' + sOpts + '</select></div>' +
       '<div class="form-group"><label>Notes (Optional)</label><textarea id="rec-notes" placeholder="Add notes..."></textarea></div>' +
       '<button class="btn btn-gold" onclick="recordCut()">✂️ Record Cut</button>' +
@@ -585,11 +606,15 @@ function updateDateBar() {
   const bar = document.getElementById('dash-date-bar');
   const clearBtn = document.getElementById('dash-clear-btn');
   const label = document.getElementById('dash-date-label');
+  const dateText = document.getElementById('dash-date-text');
+  const inp = document.getElementById('dash-date-input');
   if (!bar) return;
   if (d) {
     bar.style.borderColor = '#ffd76a';
     bar.style.background = 'linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.06))';
     if (clearBtn) clearBtn.style.display = 'block';
+    if (inp) inp.value = d;
+    if (dateText) { dateText.textContent = fmtDate(d); dateText.style.color = '#ffd76a'; }
     const cnt = state.matches.filter(m => m.match_date === d).length;
     if (label) {
       label.style.color = '#ffd76a';
@@ -600,6 +625,8 @@ function updateDateBar() {
     bar.style.borderColor = '#ffd76a';
     bar.style.background = '#1f2937';
     if (clearBtn) clearBtn.style.display = 'none';
+    if (inp) inp.value = '';
+    if (dateText) { dateText.textContent = 'Tap anywhere to pick a date'; dateText.style.color = '#94a3b8'; }
     if (label) {
       label.style.color = '#94a3b8';
       label.style.fontWeight = '400';
@@ -986,7 +1013,10 @@ function openEditMatch(id) {
   document.getElementById('edit-match-loser').innerHTML = pOpts;
   document.getElementById('edit-match-winner').value = m.winner_id;
   document.getElementById('edit-match-loser').value = m.loser_id;
-  document.getElementById('edit-match-date').value = m.match_date || todayStr();
+  const editDate = m.match_date || todayStr();
+  document.getElementById('edit-match-date').value = editDate;
+  const editDisp = document.getElementById('edit-date-display');
+  if (editDisp && editDate) editDisp.textContent = new Date(editDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   document.getElementById('edit-match-season').innerHTML = sOpts;
   document.getElementById('edit-match-notes').value = m.notes || '';
   openModal('modal-edit-match');
