@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.1.1 -->
+<title>BAKSS Kite Manager</title><!-- v1.1.3 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -30,6 +30,42 @@
   --radius:14px;
   --radius-sm:8px;
 }
+/* DAY THEME (6am - 7pm) */
+body.day-theme{
+  --bg:#eef2f7;
+  --card:#ffffff;
+  --card2:#dde4ef;
+  --gold:#c8860a;
+  --gold2:#a06c08;
+  --text:#0f172a;
+  --text2:#4b6080;
+  --red:#dc2626;
+  --green:#16a34a;
+  --blue:#2563eb;
+  --border:#b8c8db;
+}
+body.day-theme #header{background:linear-gradient(135deg,#1a3a6b,#0f2347)}
+body.day-theme #season-bar{background:#dde4ef}
+body.day-theme #nav{background:#ffffff;border-top:1px solid #b8c8db}
+body.day-theme .nav-btn.active{color:#c8860a}
+body.day-theme .champion-card{background:linear-gradient(135deg,#1a3a6b,#0f2347);border-color:rgba(200,134,10,.5)}
+body.day-theme .champion-card .name{color:#ffffff}
+body.day-theme .champion-card .period{color:#ffd76a}
+body.day-theme .stat-box.highlight{background:linear-gradient(135deg,rgba(200,134,10,.15),rgba(200,134,10,.05));border-color:rgba(200,134,10,.4)}
+body.day-theme .stat-box .val{color:#c8860a}
+body.day-theme .season-pill.active{background:#c8860a;color:#fff;border-color:#c8860a}
+body.day-theme .btn-gold{background:#c8860a;color:#fff}
+body.day-theme .rank-badge.r1{background:#c8860a;color:#fff}
+body.day-theme select,body.day-theme input,body.day-theme textarea{background:#f8fafc;border-color:#b8c8db;color:#0f172a}
+body.day-theme #dash-date-bar{background:#ffffff;border-bottom-color:#c8860a}
+body.day-theme .date-display{background:#f8fafc;border-color:#b8c8db;color:#0f172a}
+body.day-theme .streak.win{background:rgba(22,163,74,.15);color:#16a34a}
+body.day-theme .streak.loss{background:rgba(220,38,38,.15);color:#dc2626}
+body.day-theme #toast{background:#ffffff;border-color:#b8c8db;color:#0f172a}
+body.day-theme .modal{background:#ffffff}
+body.day-theme .card-title{color:#4b6080}
+body.day-theme .admin-btn.active{background:#c8860a;border-color:#c8860a;color:#fff}
+body.day-theme #theme-indicator{background:#f59e0b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px}
 
@@ -198,6 +234,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 }
 /* Date bar only visible on dashboard - outside media query so applies to ALL screen sizes */
 body:not([data-page="dashboard"]) #dash-date-bar{display:none}
+
+/* Tap-anywhere date picker wrapper */
+.date-picker-wrap{position:relative;cursor:pointer;display:block}
+.date-picker-wrap input[type="date"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;-webkit-appearance:none;appearance:none}
+.date-display{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none;transition:.2s}
+.date-picker-wrap:hover .date-display,.date-picker-wrap:focus-within .date-display{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,215,106,.15)}
+.date-icon{font-size:18px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -209,6 +252,7 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
       <p id="active-season-label">Loading...</p>
     </div>
     <div id="conn-indicator"></div>
+    <div id="theme-indicator" style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-right:2px;transition:.3s" title="Day/Night theme"></div>
     <button class="admin-btn" id="admin-toggle" onclick="openAdminModal()">⚙️ Admin</button>
   </div>
   <div id="season-bar"></div>
@@ -216,7 +260,7 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
   <div id="dash-date-bar" style="background:#1f2937;border-bottom:3px solid #ffd76a;padding:12px 16px">
     <div style="font-size:11px;font-weight:800;color:#ffd76a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📅 Filter Dashboard by Date</div>
     <div style="display:flex;gap:10px;align-items:center">
-      <div onclick="document.getElementById('dash-date-input').showPicker?document.getElementById('dash-date-input').showPicker():document.getElementById('dash-date-input').click()" style="flex:1;cursor:pointer;position:relative">
+      <div onclick="openDatePicker('dash-date-input')" style="flex:1;cursor:pointer;position:relative">
         <input type="date" id="dash-date-input"
           style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"
           onchange="setDashboardDate(this.value)"/>
@@ -296,8 +340,8 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
     <div class="form-group"><label>Winner</label><select id="edit-match-winner"></select></div>
     <div class="form-group"><label>Loser</label><select id="edit-match-loser"></select></div>
     <div class="form-group"><label>Date</label>
-    <div onclick="document.getElementById('edit-match-date').showPicker?document.getElementById('edit-match-date').showPicker():document.getElementById('edit-match-date').click()" style="position:relative;cursor:pointer">
-      <input type="date" id="edit-match-date" onchange="document.getElementById('edit-date-display').textContent=this.value?new Date(this.value+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'Tap to pick'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/>
+    <div onclick="openDatePicker('edit-match-date')" style="position:relative;cursor:pointer">
+      <input type="date" id="edit-match-date" onchange="updateDateDisplay('edit-match-date','edit-date-display',this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/>
       <div style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none">
         <span id="edit-date-display">Tap to pick a date</span>
         <span style="font-size:18px">📅</span>
@@ -370,7 +414,55 @@ let state = {
   pinBuffer: ''
 };
 
+// --- Day/Night Theme ---
+function applyTheme() {
+  const hour = new Date().getHours();
+  const isDay = hour >= 6 && hour < 19; // Day: 6am to 7pm
+  document.body.classList.toggle('day-theme', isDay);
+  document.body.classList.toggle('night-theme', !isDay);
+  const indicator = document.getElementById('theme-indicator');
+  if (indicator) {
+    indicator.style.background = isDay ? '#f59e0b' : '#22c55e';
+    indicator.title = isDay ? '☀️ Day theme active' : '🌙 Night theme active';
+  }
+}
+
+function startThemeWatcher() {
+  applyTheme();
+  // Check every 60 seconds for theme change
+  setInterval(applyTheme, 60000);
+  // Also recalculate at the exact next 6am or 7pm boundary
+  const now = new Date();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  const sec = now.getSeconds();
+  // Find ms until next boundary (6:00 or 19:00)
+  let msUntilNext;
+  if (hour < 6) {
+    msUntilNext = ((6 - hour - 1) * 60 + (60 - min)) * 60000 - sec * 1000;
+  } else if (hour < 19) {
+    msUntilNext = ((19 - hour - 1) * 60 + (60 - min)) * 60000 - sec * 1000;
+  } else {
+    msUntilNext = ((30 - hour - 1) * 60 + (60 - min)) * 60000 - sec * 1000; // Next 6am
+  }
+  setTimeout(() => { applyTheme(); startThemeWatcher(); }, Math.max(msUntilNext, 1000));
+}
+
+// --- Date picker helpers ---
+function openDatePicker(inputId) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.showPicker) { try { inp.showPicker(); return; } catch(e) {} }
+  inp.click();
+}
+
+function updateDateDisplay(inputId, displayId, val) {
+  const disp = document.getElementById(displayId);
+  if (disp) disp.textContent = val ? fmtDate(val) : 'Tap to pick a date';
+}
+
 async function init() {
+  startThemeWatcher();
   document.body.setAttribute('data-page', 'record');
   state.dashboardDate = todayStr(); // auto-set to today
   // Set the static date input value to today
@@ -526,13 +618,7 @@ function renderRecord() {
       '<div class="form-group"><label>Winner (Cutter) 🏆</label><select id="rec-winner"><option value="">Select winner...</option>' + pOpts + '</select></div>' +
       '<div class="form-group"><label>Loser (Cut) ❌</label><select id="rec-loser"><option value="">Select loser...</option>' + pOpts + '</select></div>' +
       '<div class="form-group"><label>Date</label>' +
-      '<div onclick="document.getElementById(\'rec-date\').showPicker?document.getElementById(\'rec-date\').showPicker():document.getElementById(\'rec-date\').click()" style="position:relative;cursor:pointer">' +
-        '<input type="date" id="rec-date" value="' + today + '" onchange="document.getElementById(\'rec-date-display\').textContent=this.value?new Date(this.value+\'T00:00:00\').toLocaleDateString(\'en-GB\',{day:\'2-digit\',month:\'short\',year:\'numeric\'}):'Tap to pick a date'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/>' +
-        '<div style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none">' +
-          '<span id="rec-date-display">' + new Date(today+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + '</span>' +
-          '<span style="font-size:18px">📅</span>' +
-        '</div>' +
-      '</div></div>' +
+      '<div class="date-picker-wrap" onclick="openDatePicker(\'rec-date\')"><input type="date" id="rec-date" value="' + today + '" onchange="updateDateDisplay(\'rec-date\',\'rec-date-display\',this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/><div class="date-display"><span id="rec-date-display">' + fmtDate(today) + '</span><span class="date-icon">📅</span></div></div>' +
       '<div class="form-group"><label>Season</label><select id="rec-season">' + sOpts + '</select></div>' +
       '<div class="form-group"><label>Notes (Optional)</label><textarea id="rec-notes" placeholder="Add notes..."></textarea></div>' +
       '<button class="btn btn-gold" onclick="recordCut()">✂️ Record Cut</button>' +
@@ -1015,8 +1101,7 @@ function openEditMatch(id) {
   document.getElementById('edit-match-loser').value = m.loser_id;
   const editDate = m.match_date || todayStr();
   document.getElementById('edit-match-date').value = editDate;
-  const editDisp = document.getElementById('edit-date-display');
-  if (editDisp && editDate) editDisp.textContent = new Date(editDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  updateDateDisplay('edit-match-date', 'edit-date-display', editDate);
   document.getElementById('edit-match-season').innerHTML = sOpts;
   document.getElementById('edit-match-notes').value = m.notes || '';
   openModal('modal-edit-match');
