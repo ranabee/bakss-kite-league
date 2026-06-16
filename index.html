@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.2 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.3 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -494,6 +494,15 @@ body.day-theme .team-score-card .team-name{color:#ffffff}
 </div>
 
 <div id="toast"></div>
+
+<!-- Past Teams History Modal -->
+<div class="modal-overlay" id="modal-past-teams">
+  <div class="modal" style="max-height:85vh">
+    <button class="modal-close" onclick="closeModal('modal-past-teams')">✕</button>
+    <div class="modal-title">📅 Past Teams</div>
+    <div id="past-teams-content"></div>
+  </div>
+</div>
 
 <!-- Create/Edit Team Modal -->
 <div class="modal-overlay" id="modal-team">
@@ -1107,46 +1116,99 @@ function renderSettings() {
 
 // --- Teams Section for Settings ---
 function renderTeamsSection() {
-  const allTeams = state.teams.slice(0, 20);
+  const today = todayStr();
+  const todayTeams = state.teams.filter(function(t) { return t.team_date === today; });
+  const pastTeamsExist = state.teams.some(function(t) { return t.team_date !== today; });
+
+  // Build today-only team rows with edit/delete
+  let todayHTML = '';
+  if (todayTeams.length === 0) {
+    todayHTML = '<div class="empty" style="padding:16px 0"><div class="icon">🪁</div><p>No teams for today yet.</p></div>';
+  } else {
+    todayTeams.forEach(function(t) {
+      const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
+      const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === today; }));
+      const safeId = t.id.replace(/[\'"]/g, '');
+      const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(\'' + safeId + '\')">✏️ Edit</button>';
+      const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(\'' + safeId + '\')">🗑 Delete</button>' : '';
+      todayHTML += '<div class="player-admin-item"><div class="info"><div class="name">🪁 ' + esc(t.name) + '</div><div class="sub">' + (members || 'No players') + ' · ' + score.wins + 'W ' + score.losses + 'L</div></div><div class="actions">' + editBtn + delBtn + '</div></div>';
+    });
+  }
+
+  const pastBtn = pastTeamsExist
+    ? '<button class="btn btn-outline" style="margin-top:10px" onclick="openPastTeams()">📅 View Past Teams</button>'
+    : '';
+
+  return '<div class="card"><div class="card-title"><span class="dot"></span>🪁 Teams Today · ' + fmtDate(today) + '</div>' +
+    todayHTML +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">' +
+      '<button class="btn btn-gold" onclick="openCreateTeamToday()">+ Create Team</button>' +
+      '<button class="btn btn-outline" onclick="openCreateTeam()">+ Pick a Date</button>' +
+    '</div>' +
+    pastBtn +
+    '<p style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Create 2 teams for today. Scores appear live on Dashboard.</p>' +
+  '</div>';
+}
+
+function openPastTeams() {
+  const today = todayStr();
+  const past = state.teams.filter(function(t) { return t.team_date !== today; });
+
+  // Group by date descending
   const byDate = {};
-  allTeams.forEach(function(t) {
+  past.forEach(function(t) {
     if (!byDate[t.team_date]) byDate[t.team_date] = [];
     byDate[t.team_date].push(t);
   });
 
-  let teamListHTML = '';
-  const dateEntries = Object.entries(byDate).sort(function(a,b){ return b[0].localeCompare(a[0]); }).slice(0,7);
-  dateEntries.forEach(function(entry) {
-    const date = entry[0], teams = entry[1];
-    let rows = '';
-    teams.forEach(function(t) {
-      const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
-      const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === date; }));
-      const safeId = t.id.replace(/['"]/g, '');
-      const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(\'' + safeId + '\')">✏️ Edit</button>';
-      const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(\'' + safeId + '\')">🗑 Delete</button>' : '';
-      rows += '<div class="player-admin-item"><div class="info"><div class="name">🪁 ' + esc(t.name) + '</div><div class="sub">' + (members || 'No players') + ' · ' + score.wins + 'W ' + score.losses + 'L</div></div><div class="actions">' + editBtn + delBtn + '</div></div>';
-    });
-    teamListHTML += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">' + fmtDate(date) + '</div>' + rows + '</div>';
-  });
-  if (!teamListHTML) teamListHTML = '<div class="empty" style="padding:20px 0"><div class="icon">🪁</div><p>No teams yet. Create one below!</p></div>';
+  const dates = Object.keys(byDate).sort(function(a,b){ return b.localeCompare(a); });
 
-  return '<div class="card"><div class="card-title"><span class="dot"></span>🪁 Teams</div>' +
-    teamListHTML +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">' +
-      '<button class="btn btn-gold" onclick="openCreateTeam()">+ Create Team</button>' +
-      '<button class="btn btn-outline" onclick="openCreateTeamToday()">+ Team for Today</button>' +
-    '</div>' +
-    '<p style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Create 2 teams per day. Scores appear live on Dashboard.</p>' +
-  '</div>';
+  let html = '';
+  if (dates.length === 0) {
+    html = '<div class="empty"><div class="icon">📅</div><p>No past teams yet.</p></div>';
+  } else {
+    dates.forEach(function(date) {
+      const teams = byDate[date];
+      html += '<div style="margin-bottom:16px">';
+      html += '<div style="font-size:12px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">' + fmtDate(date) + '</div>';
+      teams.forEach(function(t) {
+        const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
+        const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === date; }));
+        const safeId = t.id.replace(/[\'"]/g, '');
+
+        // Admin gets edit + delete, everyone else view only
+        const adminBtns = state.isAdmin
+          ? '<div class="actions" style="display:flex;gap:6px;margin-top:8px">' +
+              '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(\'' + safeId + '\');closeModal(\'modal-past-teams\')">✏️ Edit</button>' +
+              '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(\'' + safeId + '\')">🗑 Delete</button>' +
+            '</div>'
+          : '';
+
+        html += '<div class="match-item" style="flex-direction:column;align-items:flex-start">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
+            '<div><div style="font-weight:700;font-size:14px">🪁 ' + esc(t.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:3px">' + (members || 'No players') + '</div></div>' +
+            '<div style="text-align:right"><div style="font-size:16px;font-weight:800;color:var(--gold)">' + score.wins + 'W · ' + score.losses + 'L</div></div>' +
+          '</div>' +
+          adminBtns +
+        '</div>';
+      });
+      html += '</div>';
+    });
+  }
+
+  document.getElementById('past-teams-content').innerHTML = html;
+  openModal('modal-past-teams');
 }
+
 
 function openCreateTeamToday() {
   openCreateTeam();
-  // Pre-fill today's date after modal opens
+  // Pre-fill today's date
   setTimeout(function() {
+    const today = todayStr();
     const inp = document.getElementById('team-date-input');
-    if (inp) { inp.value = todayStr(); updateDateDisplay('team-date-input','team-date-display', todayStr()); }
+    if (inp) { inp.value = today; updateDateDisplay('team-date-input','team-date-display', today); }
   }, 50);
 }
 
@@ -1492,14 +1554,14 @@ function getTeamScore(team, matches) {
 
 function renderTeamScoreCard(dateMatches) {
   // Find teams for the selected date (or today)
-  const d = state.dashboardDate || todayStr();
+  const d = state.dashboardDate; // strictly use dashboard selected date only
   const teamsOnDate = state.teams.filter(t => t.team_date === d);
 
+  if (!d) return ''; // No date selected on dashboard - hide team card
   if (!teamsOnDate.length) {
-    // Show a placeholder so users know teams exist but aren't set for this date
     return '<div class="team-score-card" style="opacity:.7">' +
       '<div class="card-title" style="color:var(--gold);margin-bottom:6px"><span class="dot"></span>🪁 Team Score</div>' +
-      '<p style="color:var(--text2);font-size:13px;text-align:center;padding:8px 0">No teams set for ' + fmtDate(d) + '.<br>Go to <b style="color:var(--gold)">Settings → Teams</b> to create teams for today.</p>' +
+      '<p style="color:var(--text2);font-size:13px;text-align:center;padding:8px 0">No teams for ' + fmtDate(d) + '.<br><span style="font-size:11px">Go to Settings → Teams to create teams for this date.</span></p>' +
     '</div>';
   }
 
