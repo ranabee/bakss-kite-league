@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.0.9 -->
+<title>BAKSS Kite Manager</title><!-- v1.1.0 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -47,7 +47,7 @@ html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);f
 .season-pill.active{background:var(--gold);color:#000;border-color:var(--gold);font-weight:700}
 #nav{background:var(--card2);border-top:1px solid var(--border);padding:0;position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;background:transparent;border:none;color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;transition:.15s;letter-spacing:.3px}
-.nav-btn .nav-icon{font-size:22px;line-height:1}
+.nav-btn .nav-icon{font-size:22px;line-height:1;pointer-events:none}
 .nav-btn.active{color:var(--gold)}
 .nav-btn.active .nav-icon{transform:scale(1.1)}
 #content{flex:1;padding:16px;padding-bottom:80px;overflow-y:auto}
@@ -419,7 +419,15 @@ function showPage(page) {
   renderPage(page);
 }
 
-function renderAll() { renderSeasonBar(); renderPage(state.currentPage); }
+function renderAll() {
+  renderSeasonBar();
+  renderPage(state.currentPage);
+  // Always keep date bar in sync with state after any data update
+  updateDateBar();
+  // Keep the date input value in sync (renderDashboard doesn't touch the static bar)
+  const inp = document.getElementById('dash-date-input');
+  if (inp && state.dashboardDate) inp.value = state.dashboardDate;
+}
 function renderPage(p) {
   if (p==='record') renderRecord();
   if (p==='dashboard') renderDashboard();
@@ -601,10 +609,16 @@ function updateDateBar() {
 }
 
 function renderDashboard() {
+  // Keep static date input in sync with state
+  const _inp = document.getElementById('dash-date-input');
+  if (_inp && state.dashboardDate && _inp.value !== state.dashboardDate) {
+    _inp.value = state.dashboardDate;
+  }
   const page = document.getElementById('page-dashboard');
   const all = state.matches;
   const baseMatches = state.activeSeason ? all.filter(m => m.season === state.activeSeason) : all;
   const selectedDate = state.dashboardDate;
+  // When a date is selected, search ALL matches regardless of season filter
   const viewMatches = selectedDate ? all.filter(m => m.match_date === selectedDate) : baseMatches;
   const today = todayStr();
   const thisMonth = today.slice(0,7);
