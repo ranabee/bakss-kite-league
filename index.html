@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.1 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.2 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -1122,9 +1122,9 @@ function renderTeamsSection() {
     teams.forEach(function(t) {
       const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
       const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === date; }));
-      const safeId = t.id;
-      const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(' + JSON.stringify(safeId) + ')">✏️</button>';
-      const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(' + JSON.stringify(safeId) + ')">🗑</button>' : '';
+      const safeId = t.id.replace(/['"]/g, '');
+      const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(\'' + safeId + '\')">✏️ Edit</button>';
+      const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(\'' + safeId + '\')">🗑 Delete</button>' : '';
       rows += '<div class="player-admin-item"><div class="info"><div class="name">🪁 ' + esc(t.name) + '</div><div class="sub">' + (members || 'No players') + ' · ' + score.wins + 'W ' + score.losses + 'L</div></div><div class="actions">' + editBtn + delBtn + '</div></div>';
     });
     teamListHTML += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">' + fmtDate(date) + '</div>' + rows + '</div>';
@@ -1423,14 +1423,14 @@ function renderPlayerCheckboxes(selected) {
   const activePlayers = state.players.filter(p => p.active !== false);
   box.innerHTML = activePlayers.map(p => {
     const isSel = selected.includes(p.id);
-    const pId = p.id.replace(/'/g, '');
-    return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" onclick="toggleTeamPlayer(this,\'' + pId + '\')">' +
+    const pId = p.id.replace(/['"]/g, '');
+    return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" data-pid="' + pId + '" onclick="toggleTeamPlayer(this)">' +
       '<span>' + (isSel?'\u2705':'\u2B1C') + '</span>' + esc(p.name) + '</div>';
   }).join('');
   updateTeamCount();
 }
 
-function toggleTeamPlayer(el, playerId) {
+function toggleTeamPlayer(el) {
   el.classList.toggle('selected');
   el.querySelector('span').textContent = el.classList.contains('selected') ? '✅' : '⬜';
   updateTeamCount();
@@ -1444,12 +1444,8 @@ function updateTeamCount() {
 
 function getSelectedPlayerIds() {
   return Array.from(document.querySelectorAll('#team-player-checkboxes .player-checkbox-item.selected'))
-    .map(el => {
-      // Find player by name text
-      const name = el.textContent.replace('✅','').replace('⬜','').trim();
-      const p = state.players.find(p => p.name === name);
-      return p ? p.id : null;
-    }).filter(Boolean);
+    .map(el => el.getAttribute('data-pid'))
+    .filter(Boolean);
 }
 
 async function saveTeam() {
