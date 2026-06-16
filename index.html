@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.1.3 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.0 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -44,27 +44,109 @@ body.day-theme{
   --blue:#2563eb;
   --border:#b8c8db;
 }
-body.day-theme #header{background:linear-gradient(135deg,#1a3a6b,#0f2347)}
-body.day-theme #season-bar{background:#dde4ef}
-body.day-theme #nav{background:#ffffff;border-top:1px solid #b8c8db}
-body.day-theme .nav-btn.active{color:#c8860a}
-body.day-theme .champion-card{background:linear-gradient(135deg,#1a3a6b,#0f2347);border-color:rgba(200,134,10,.5)}
+/* === DAY THEME OVERRIDES === */
+body.day-theme #header{background:linear-gradient(135deg,#1e40af,#1d4ed8) !important}
+body.day-theme #header .title-area h1{color:#ffd76a}
+body.day-theme #header .title-area p{color:#bfdbfe}
+body.day-theme #header .admin-btn{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#ffffff}
+body.day-theme #header .admin-btn.active{background:#ffd76a;border-color:#ffd76a;color:#1e3a8a}
+body.day-theme #conn-indicator{background:#4ade80}
+body.day-theme #season-bar{background:#dbeafe;border-bottom-color:#93c5fd}
+body.day-theme .season-pill{background:rgba(255,255,255,.7);border-color:#93c5fd;color:#1e3a8a;font-weight:600}
+body.day-theme .season-pill.active{background:#1e40af;color:#fff;border-color:#1e40af}
+body.day-theme #nav{background:#ffffff;border-top:2px solid #e2e8f0}
+body.day-theme .nav-btn{color:#64748b}
+body.day-theme .nav-btn.active{color:#1e40af}
+body.day-theme #content{background:#f0f6ff}
+/* Cards */
+body.day-theme .card{background:#ffffff;border-color:#dde8f5}
+body.day-theme .card-title{color:#4b6080}
+body.day-theme .card-title .dot{background:#1e40af}
+/* Champion cards - keep dark for contrast */
+body.day-theme .champion-card{background:linear-gradient(135deg,#1e3a8a,#1e40af);border-color:rgba(255,215,106,.5)}
 body.day-theme .champion-card .name{color:#ffffff}
 body.day-theme .champion-card .period{color:#ffd76a}
-body.day-theme .stat-box.highlight{background:linear-gradient(135deg,rgba(200,134,10,.15),rgba(200,134,10,.05));border-color:rgba(200,134,10,.4)}
-body.day-theme .stat-box .val{color:#c8860a}
-body.day-theme .season-pill.active{background:#c8860a;color:#fff;border-color:#c8860a}
-body.day-theme .btn-gold{background:#c8860a;color:#fff}
-body.day-theme .rank-badge.r1{background:#c8860a;color:#fff}
+body.day-theme .champion-card .stat{color:#bfdbfe}
+body.day-theme .champion-card::before{opacity:.1}
+/* Stat boxes */
+body.day-theme .stat-box{background:#f0f6ff;border-color:#dde8f5}
+body.day-theme .stat-box .val{color:#1e40af}
+body.day-theme .stat-box .lbl{color:#64748b}
+body.day-theme .stat-box.highlight{background:linear-gradient(135deg,rgba(30,64,175,.12),rgba(30,64,175,.04));border-color:rgba(30,64,175,.4)}
+/* Rank badges */
+body.day-theme .rank-badge{background:#dde8f5;color:#1e3a8a}
+body.day-theme .rank-badge.r1{background:#ffd76a;color:#1e3a8a}
+body.day-theme .rank-badge.r2{background:#c0c0c0;color:#1e3a8a}
+body.day-theme .rank-badge.r3{background:#cd7f32;color:#fff}
+/* Leaderboard */
+body.day-theme .lb-table th{color:#64748b;border-bottom-color:#dde8f5}
+body.day-theme .lb-table td{border-bottom-color:#f0f6ff;color:#0f172a}
+/* Buttons */
+body.day-theme .btn-gold{background:#1e40af;color:#fff}
+body.day-theme .btn-gold:hover{background:#1d4ed8}
+body.day-theme .btn-outline{color:#1e3a8a;border-color:#93c5fd}
+body.day-theme .btn-outline:hover{border-color:#1e40af;color:#1e40af}
+/* Forms */
 body.day-theme select,body.day-theme input,body.day-theme textarea{background:#f8fafc;border-color:#b8c8db;color:#0f172a}
-body.day-theme #dash-date-bar{background:#ffffff;border-bottom-color:#c8860a}
-body.day-theme .date-display{background:#f8fafc;border-color:#b8c8db;color:#0f172a}
-body.day-theme .streak.win{background:rgba(22,163,74,.15);color:#16a34a}
+body.day-theme select:focus,body.day-theme input:focus,body.day-theme textarea:focus{border-color:#1e40af;box-shadow:0 0 0 2px rgba(30,64,175,.15)}
+body.day-theme label{color:#4b6080}
+/* Date bar */
+body.day-theme #dash-date-bar{background:#dbeafe !important;border-bottom:3px solid #1e40af !important}
+body.day-theme #dash-date-bar input[type=date]{background:#ffffff;border-color:#1e40af;color:#0f172a}
+body.day-theme #dash-date-display,.day-theme .date-display{background:#ffffff !important;border-color:#93c5fd !important;color:#0f172a !important}
+body.day-theme #dash-date-label{color:#4b6080}
+body.day-theme #dash-date-bar > div > div:first-child > div > span:first-child{color:#1e40af}
+/* Streaks */
+body.day-theme .streak.win{background:rgba(22,163,74,.15);color:#15803d}
 body.day-theme .streak.loss{background:rgba(220,38,38,.15);color:#dc2626}
+/* Match items */
+body.day-theme .match-item{background:#f8fafc;border-color:#dde8f5}
+body.day-theme .match-item .loser{color:#64748b}
+body.day-theme .cut-badge{background:rgba(30,64,175,.12);color:#1e40af}
+/* Rivalry badges */
+body.day-theme .rivalry-badge{background:rgba(30,64,175,.08);border-color:rgba(30,64,175,.2)}
+body.day-theme .rivalry-score{color:#1e40af}
+/* Filter chips */
+body.day-theme .filter-chip{background:#f0f6ff;border-color:#93c5fd;color:#1e3a8a}
+body.day-theme .filter-chip.active{background:#1e40af;color:#fff;border-color:#1e40af}
+/* Tab buttons */
+body.day-theme .tab-row{background:#f0f6ff}
+body.day-theme .tab-btn{color:#64748b}
+body.day-theme .tab-btn.active{background:#1e40af;color:#fff}
+/* Report stats */
+body.day-theme .report-stat .key{color:#64748b}
+body.day-theme .report-stat .value{color:#0f172a}
+body.day-theme .report-stat{border-bottom-color:#f0f6ff}
+/* Matrix */
+body.day-theme .matrix-table th{background:#dbeafe;color:#1e3a8a}
+body.day-theme .matrix-table td:first-child{background:#f0f6ff;color:#0f172a}
+body.day-theme .matrix-table th,.day-theme .matrix-table td{border-color:#dde8f5}
+body.day-theme .matrix-table td.hot{background:rgba(30,64,175,.15);color:#1e40af}
+body.day-theme .matrix-table td.self{background:#dde8f5}
+/* Player items */
+body.day-theme .player-admin-item{border-bottom-color:#f0f6ff}
+body.day-theme .player-admin-item .info .name{color:#0f172a}
+body.day-theme .player-admin-item .info .sub{color:#64748b}
+/* Profile */
+body.day-theme .profile-avatar{background:linear-gradient(135deg,#1e40af,#3b82f6)}
+body.day-theme .profile-name{color:#0f172a}
+/* Toast */
 body.day-theme #toast{background:#ffffff;border-color:#b8c8db;color:#0f172a}
+body.day-theme #toast.success{border-color:#16a34a;color:#16a34a}
+body.day-theme #toast.error{border-color:#dc2626;color:#dc2626}
+/* Modals */
 body.day-theme .modal{background:#ffffff}
-body.day-theme .card-title{color:#4b6080}
-body.day-theme .admin-btn.active{background:#c8860a;border-color:#c8860a;color:#fff}
+body.day-theme .modal-title{color:#1e40af}
+/* PIN dots */
+body.day-theme .pin-dot{border-color:#93c5fd}
+body.day-theme .pin-dot.filled{background:#1e40af;border-color:#1e40af}
+body.day-theme .pin-key{background:#f0f6ff;border-color:#93c5fd;color:#0f172a}
+/* Empty states */
+body.day-theme .empty{color:#64748b}
+/* Inactive/active tags */
+body.day-theme .active-tag{background:rgba(22,163,74,.15);color:#15803d}
+body.day-theme .inactive-tag{background:rgba(220,38,38,.15);color:#dc2626}
+/* Theme indicator */
 body.day-theme #theme-indicator{background:#f59e0b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px}
@@ -235,6 +317,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* Date bar only visible on dashboard - outside media query so applies to ALL screen sizes */
 body:not([data-page="dashboard"]) #dash-date-bar{display:none}
 
+/* Team player checkboxes */
+.player-checkbox-item{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.player-checkbox-item.selected{background:rgba(255,215,106,.15);border-color:var(--gold);color:var(--gold)}
+body.day-theme .player-checkbox-item{background:#f0f6ff;border-color:#93c5fd;color:#0f172a}
+body.day-theme .player-checkbox-item.selected{background:rgba(30,64,175,.12);border-color:#1e40af;color:#1e40af}
+.team-score-card{background:linear-gradient(135deg,#1a2840,#0f1e33);border:1px solid rgba(255,215,106,.3);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.team-score-card .team-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.team-score-card .team-row:not(:last-child){border-bottom:1px solid rgba(255,215,106,.15)}
+.team-score-card .team-name{font-weight:700;font-size:15px}
+.team-score-card .team-score{font-size:22px;font-weight:800;color:var(--gold)}
+.team-score-card .vs-divider{text-align:center;color:var(--text2);font-size:11px;font-weight:700;letter-spacing:2px;padding:4px 0}
+body.day-theme .team-score-card{background:linear-gradient(135deg,#1e3a8a,#1e40af)}
+body.day-theme .team-score-card .vs-divider{color:#bfdbfe}
+body.day-theme .team-score-card .team-name{color:#ffffff}
+
 /* Tap-anywhere date picker wrapper */
 .date-picker-wrap{position:relative;cursor:pointer;display:block}
 .date-picker-wrap input[type="date"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;-webkit-appearance:none;appearance:none}
@@ -393,6 +490,36 @@ body:not([data-page="dashboard"]) #dash-date-bar{display:none}
 
 <div id="toast"></div>
 
+<!-- Create/Edit Team Modal -->
+<div class="modal-overlay" id="modal-team">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-team')">✕</button>
+    <div class="modal-title" id="team-modal-title">🪁 Create Team</div>
+    <input type="hidden" id="team-edit-id"/>
+    <div class="form-group">
+      <label>Team Name</label>
+      <input type="text" id="team-name-input" placeholder="e.g. Team Alpha"/>
+    </div>
+    <div class="form-group">
+      <label>Team Date</label>
+      <div class="date-picker-wrap" onclick="openDatePicker('team-date-input')">
+        <input type="date" id="team-date-input" onchange="updateDateDisplay('team-date-input','team-date-display',this.value)"/>
+        <div class="date-display"><span id="team-date-display">Tap to pick a date</span><span class="date-icon">📅</span></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Season</label>
+      <select id="team-season-input"></select>
+    </div>
+    <div class="form-group">
+      <label>Select Players</label>
+      <div id="team-player-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:200px;overflow-y:auto"></div>
+    </div>
+    <div id="team-selected-count" style="font-size:12px;color:var(--text2);margin-bottom:12px;text-align:center"></div>
+    <button class="btn btn-gold" onclick="saveTeam()">💾 Save Team</button>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://fblzbbbftapygeurseza.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZibHpiYmJmdGFweWdldXJzZXphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Njk4ODgsImV4cCI6MjA5NzA0NTg4OH0.tLmp-zuYC6RpewFujYSqNoITNpRISoEwoaF7XPHwM-s';
@@ -404,6 +531,7 @@ let state = {
   players: [],
   matches: [],
   seasons: [],
+  teams: [],
   activeSeason: null,
   currentPage: 'record',
   historyFilter: { search: '', season: '' },
@@ -490,14 +618,16 @@ function updateConn() {
 }
 
 async function loadAll() {
-  const [players, matches, seasons] = await Promise.all([
+  const [players, matches, seasons, teams] = await Promise.all([
     sb.from('kite_players').select('*').order('name'),
     sb.from('kite_matches').select('*').order('match_date', {ascending:false}).order('created_at', {ascending:false}),
-    sb.from('kite_seasons').select('*').order('created_at')
+    sb.from('kite_seasons').select('*').order('created_at'),
+    sb.from('kite_teams').select('*').order('team_date', {ascending:false}).order('created_at', {ascending:false})
   ]);
   if (players.data) state.players = players.data;
   if (matches.data) state.matches = matches.data.map(m => ({...m, match_date: m.match_date || m.session_date}));
   if (seasons.data) state.seasons = seasons.data;
+  if (teams.data) state.teams = teams.data;
   const active = state.seasons.find(s => s.is_active);
   if (active) state.activeSeason = active.name;
   else if (state.seasons.length) state.activeSeason = state.seasons[0].name;
@@ -509,6 +639,7 @@ function setupRealtime() {
     .on('postgres_changes', {event:'*', schema:'public', table:'kite_matches'}, () => loadAll().then(renderAll))
     .on('postgres_changes', {event:'*', schema:'public', table:'kite_players'}, () => loadAll().then(renderAll))
     .on('postgres_changes', {event:'*', schema:'public', table:'kite_seasons'}, () => loadAll().then(renderAll))
+    .on('postgres_changes', {event:'*', schema:'public', table:'kite_teams'}, () => loadAll().then(renderAll))
     .subscribe();
 }
 
@@ -756,7 +887,11 @@ function renderDashboard() {
     return '<tr class="' + (i<3?'top'+(i+1):'') + '"><td><span class="rank-badge ' + rc + '">' + (i+1) + '</span><span class="player-name-cell" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer">' + esc(p.name) + '</span></td><td style="color:var(--green);font-weight:700">' + p.wins + '</td><td style="color:var(--red)">' + p.losses + '</td><td>' + p.winPct + '%</td><td>' + st + '</td></tr>';
   }).join('');
 
+  // Team score card for selected date
+  const teamScoreHTML = renderTeamScoreCard(viewMatches);
+
   page.innerHTML =
+    teamScoreHTML +
     (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cut' + (champD.wins!==1?'s':'') + ' · ' + dateLabel + '</div></div>' :
       (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
@@ -956,6 +1091,7 @@ function renderSettings() {
       seasonsList +
       (state.isAdmin ? '<button class="btn btn-gold" style="margin-top:12px" onclick="openModal(\'modal-add-season\')">+ Add Season</button>' : '<p style="font-size:12px;color:var(--text2);margin-top:10px">Admin PIN required to add seasons</p>') +
     '</div>' +
+    renderTeamsSection() +
     '<div class="card"><div class="card-title"><span class="dot"></span>App Info</div>' +
       '<div class="report-stat"><span class="key">Version</span><span class="value">1.0.0</span></div>' +
       '<div class="report-stat"><span class="key">Total Matches</span><span class="value">' + state.matches.length + '</span></div>' +
@@ -963,6 +1099,52 @@ function renderSettings() {
       '<div class="report-stat"><span class="key">Connection</span><span class="value" style="color:' + (state.isOnline?'var(--green)':'var(--red)') + '">' + (state.isOnline?'Online':'Offline') + '</span></div>' +
     '</div>';
 }
+
+// --- Teams Section for Settings ---
+function renderTeamsSection() {
+  const allTeams = state.teams.slice(0, 20);
+  const byDate = {};
+  allTeams.forEach(function(t) {
+    if (!byDate[t.team_date]) byDate[t.team_date] = [];
+    byDate[t.team_date].push(t);
+  });
+
+  let teamListHTML = '';
+  const dateEntries = Object.entries(byDate).sort(function(a,b){ return b[0].localeCompare(a[0]); }).slice(0,7);
+  dateEntries.forEach(function(entry) {
+    const date = entry[0], teams = entry[1];
+    let rows = '';
+    teams.forEach(function(t) {
+      const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
+      const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === date; }));
+      const safeId = t.id;
+      const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(' + JSON.stringify(safeId) + ')">✏️</button>';
+      const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(' + JSON.stringify(safeId) + ')">🗑</button>' : '';
+      rows += '<div class="player-admin-item"><div class="info"><div class="name">🪁 ' + esc(t.name) + '</div><div class="sub">' + (members || 'No players') + ' · ' + score.wins + 'W ' + score.losses + 'L</div></div><div class="actions">' + editBtn + delBtn + '</div></div>';
+    });
+    teamListHTML += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">' + fmtDate(date) + '</div>' + rows + '</div>';
+  });
+  if (!teamListHTML) teamListHTML = '<div class="empty" style="padding:20px 0"><div class="icon">🪁</div><p>No teams yet. Create one below!</p></div>';
+
+  return '<div class="card"><div class="card-title"><span class="dot"></span>🪁 Teams</div>' +
+    teamListHTML +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">' +
+      '<button class="btn btn-gold" onclick="openCreateTeam()">+ Create Team</button>' +
+      '<button class="btn btn-outline" onclick="openCreateTeamToday()">+ Team for Today</button>' +
+    '</div>' +
+    '<p style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">Create 2 teams per day. Scores appear live on Dashboard.</p>' +
+  '</div>';
+}
+
+function openCreateTeamToday() {
+  openCreateTeam();
+  // Pre-fill today's date after modal opens
+  setTimeout(function() {
+    const inp = document.getElementById('team-date-input');
+    if (inp) { inp.value = todayStr(); updateDateDisplay('team-date-input','team-date-display', todayStr()); }
+  }, 50);
+}
+
 
 // --- Admin PIN ---
 let pinBuffer = '';
@@ -1198,6 +1380,146 @@ function openProfile(playerId) {
     }).join('') || '<div class="empty"><div class="icon">📋</div><p>No matches yet</p></div>');
 
   openModal('modal-player-profile');
+}
+
+// --- Teams ---
+function openCreateTeam() {
+  document.getElementById('team-edit-id').value = '';
+  document.getElementById('team-modal-title').textContent = '🪁 Create Team';
+  document.getElementById('team-name-input').value = '';
+  const today = todayStr();
+  document.getElementById('team-date-input').value = today;
+  updateDateDisplay('team-date-input','team-date-display', today);
+  // Populate season
+  const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===state.activeSeason?' selected':'') + '>' + esc(s.name) + '</option>').join('');
+  document.getElementById('team-season-input').innerHTML = sOpts;
+  // Populate players
+  renderPlayerCheckboxes([]);
+  openModal('modal-team');
+}
+
+function openEditTeam(teamId) {
+  const team = state.teams.find(t => t.id === teamId);
+  if (!team) return;
+  document.getElementById('team-edit-id').value = teamId;
+  document.getElementById('team-modal-title').textContent = '✏️ Edit Team';
+  document.getElementById('team-name-input').value = team.name;
+  document.getElementById('team-date-input').value = team.team_date;
+  updateDateDisplay('team-date-input','team-date-display', team.team_date);
+  const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===team.season?' selected':'') + '>' + esc(s.name) + '</option>').join('');
+  document.getElementById('team-season-input').innerHTML = sOpts;
+  renderPlayerCheckboxes(team.player_ids || []);
+  openModal('modal-team');
+}
+
+function renderPlayerCheckboxes(selected) {
+  const box = document.getElementById('team-player-checkboxes');
+  if (!box) return;
+  const activePlayers = state.players.filter(p => p.active !== false);
+  box.innerHTML = activePlayers.map(p => {
+    const isSel = selected.includes(p.id);
+    return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" onclick="toggleTeamPlayer(this,' + JSON.stringify(p.id) + ')">' +
+      '<span>' + (isSel?'\u2705':'\u2B1C') + '</span>' + esc(p.name) + '</div>';
+  }).join('');
+  updateTeamCount();
+}
+
+function toggleTeamPlayer(el, playerId) {
+  el.classList.toggle('selected');
+  el.querySelector('span').textContent = el.classList.contains('selected') ? '✅' : '⬜';
+  updateTeamCount();
+}
+
+function updateTeamCount() {
+  const cnt = document.querySelectorAll('#team-player-checkboxes .player-checkbox-item.selected').length;
+  const el = document.getElementById('team-selected-count');
+  if (el) el.textContent = cnt + ' player' + (cnt!==1?'s':'') + ' selected';
+}
+
+function getSelectedPlayerIds() {
+  return Array.from(document.querySelectorAll('#team-player-checkboxes .player-checkbox-item.selected'))
+    .map(el => {
+      // Find player by name text
+      const name = el.textContent.replace('✅','').replace('⬜','').trim();
+      const p = state.players.find(p => p.name === name);
+      return p ? p.id : null;
+    }).filter(Boolean);
+}
+
+async function saveTeam() {
+  const editId = document.getElementById('team-edit-id').value;
+  const name = document.getElementById('team-name-input').value.trim();
+  const teamDate = document.getElementById('team-date-input').value;
+  const season = document.getElementById('team-season-input').value;
+  const playerIds = getSelectedPlayerIds();
+
+  if (!name) return showToast('Enter a team name', 'error');
+  if (!teamDate) return showToast('Select a date', 'error');
+  if (playerIds.length === 0) return showToast('Select at least 1 player', 'error');
+
+  const payload = { name, team_date: teamDate, season, player_ids: playerIds, updated_at: new Date().toISOString() };
+
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('kite_teams').update(payload).eq('id', editId));
+  } else {
+    ({ error } = await sb.from('kite_teams').insert(payload));
+  }
+  if (error) return showToast('Error: ' + error.message, 'error');
+
+  closeModal('modal-team');
+  showToast(editId ? '✅ Team updated' : '✅ Team created', 'success');
+  await loadAll(); renderAll();
+}
+
+async function deleteTeam(teamId) {
+  if (!state.isAdmin) return showToast('Admin required', 'error');
+  if (!confirm('Delete this team?')) return;
+  const { error } = await sb.from('kite_teams').delete().eq('id', teamId);
+  if (error) return showToast('Error: ' + error.message, 'error');
+  showToast('🗑 Team deleted', '');
+  await loadAll(); renderAll();
+}
+
+function getTeamScore(team, matches) {
+  if (!team || !team.player_ids || !team.player_ids.length) return { wins: 0, losses: 0 };
+  const wins = matches.filter(m => team.player_ids.includes(m.winner_id) && !team.player_ids.includes(m.loser_id)).length;
+  const losses = matches.filter(m => team.player_ids.includes(m.loser_id) && !team.player_ids.includes(m.winner_id)).length;
+  return { wins, losses };
+}
+
+function renderTeamScoreCard(dateMatches) {
+  // Find teams for the selected date (or today)
+  const d = state.dashboardDate || todayStr();
+  const teamsOnDate = state.teams.filter(t => t.team_date === d);
+
+  if (!teamsOnDate.length) return '';
+
+  if (teamsOnDate.length === 1) {
+    const t = teamsOnDate[0];
+    const s = getTeamScore(t, dateMatches);
+    return '<div class="team-score-card">' +
+      '<div class="card-title" style="color:var(--gold);margin-bottom:10px"><span class="dot"></span>🪁 Team Score · ' + esc(fmtDate(d)) + '</div>' +
+      '<div class="team-row"><span class="team-name">' + esc(t.name) + '</span><span class="team-score">' + s.wins + 'W · ' + s.losses + 'L</span></div>' +
+      '<p style="font-size:11px;color:var(--text2);margin-top:8px">Only 1 team on this date. Add a second team in Settings.</p>' +
+    '</div>';
+  }
+
+  // Show first 2 teams head-to-head
+  const t1 = teamsOnDate[0], t2 = teamsOnDate[1];
+  const s1 = getTeamScore(t1, dateMatches), s2 = getTeamScore(t2, dateMatches);
+  const winner = s1.wins > s2.wins ? t1.name : s2.wins > s1.wins ? t2.name : 'Draw';
+
+  return '<div class="team-score-card">' +
+    '<div class="card-title" style="color:var(--gold);margin-bottom:10px"><span class="dot"></span>🪁 Team Score · ' + esc(fmtDate(d)) + '</div>' +
+    '<div class="team-row"><span class="team-name">' + esc(t1.name) + '</span><span class="team-score" style="color:' + (s1.wins > s2.wins ? 'var(--green)' : s1.wins < s2.wins ? 'var(--red)' : 'var(--gold)') + '">' + s1.wins + ' - ' + s1.losses + '</span></div>' +
+    '<div class="vs-divider">VS</div>' +
+    '<div class="team-row"><span class="team-name">' + esc(t2.name) + '</span><span class="team-score" style="color:' + (s2.wins > s1.wins ? 'var(--green)' : s2.wins < s1.wins ? 'var(--red)' : 'var(--gold)') + '">' + s2.wins + ' - ' + s2.losses + '</span></div>' +
+    (winner !== 'Draw'
+      ? '<div style="text-align:center;margin-top:10px;font-size:13px;font-weight:700;color:var(--gold)">🏆 ' + esc(winner) + ' leads</div>'
+      : '<div style="text-align:center;margin-top:10px;font-size:13px;font-weight:700;color:var(--text2)">🤝 Draw</div>') +
+    (teamsOnDate.length > 2 ? '<p style="font-size:11px;color:var(--text2);margin-top:8px">+' + (teamsOnDate.length-2) + ' more teams on this date</p>' : '') +
+  '</div>';
 }
 
 // --- Export ---
