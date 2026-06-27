@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.5 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.7 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -1083,32 +1083,40 @@ function updateFilter(key, val) {
 }
 
 function renderTop5Streaks(matches) {
-  // Find the top 5 best win streaks ever recorded across all match days
-  // Group matches by date, then compute per-player streaks cumulatively
-  const playerDates = {};
-  // Sort matches oldest first
-  const sorted = [...matches].sort((a,b) => (a.match_date||'').localeCompare(b.match_date||'') || (a.created_at||'').localeCompare(b.created_at||''));
-  // Track running streak per player
-  const runningStreak = {}, bestStreaks = [];
+  // Sort ALL matches oldest first (date then created_at for same-day ordering)
+  const sorted = [...matches].sort((a,b) =>
+    (a.match_date||'').localeCompare(b.match_date||'') ||
+    (a.created_at||'').localeCompare(b.created_at||'')
+  );
+
+  // Walk through every match in chronological order
+  // Each player has a running streak counter that resets on any loss
+  const running = {};   // { playerId: { streak, startDate } }
+  const best = {};      // { playerId: { streak, date } } — best ever
+
   sorted.forEach(m => {
-    // Winner gets +1 streak
-    if (!runningStreak[m.winner_id]) runningStreak[m.winner_id] = {streak:0, date:''};
-    runningStreak[m.winner_id].streak++;
-    runningStreak[m.winner_id].date = m.match_date;
-    const ws = runningStreak[m.winner_id].streak;
-    bestStreaks.push({pid: m.winner_id, streak: ws, date: m.match_date});
-    // Loser resets streak
-    runningStreak[m.loser_id] = {streak:0, date: m.match_date};
+    const wId = m.winner_id, lId = m.loser_id;
+    const date = m.match_date || '';
+
+    // ── WINNER: increment their streak ──
+    if (!running[wId]) running[wId] = { streak: 0, startDate: date };
+    running[wId].streak++;
+    running[wId].startDate = running[wId].startDate || date;
+
+    // Record if this is their best ever
+    if (!best[wId] || running[wId].streak > best[wId].streak) {
+      best[wId] = { streak: running[wId].streak, date };
+    }
+
+    // ── LOSER: their streak resets to 0 ──
+    running[lId] = { streak: 0, startDate: date };
   });
 
-  // Get top 5 unique best streaks (deduplicate by player - keep their best)
-  const byPlayer = {};
-  bestStreaks.forEach(s => {
-    if (!byPlayer[s.pid] || s.streak > byPlayer[s.pid].streak) byPlayer[s.pid] = s;
-  });
-  const top5 = Object.values(byPlayer)
-    .sort((a,b) => b.streak - a.streak)
-    .slice(0,5);
+  // Top 5 across all players
+  const top5 = Object.entries(best)
+    .map(([pid, b]) => ({ pid, streak: b.streak, date: b.date }))
+    .sort((a, b) => b.streak - a.streak)
+    .slice(0, 5);
 
   if (!top5.length) {
     return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks</div><div class="empty"><div class="icon">🔥</div><p>No streaks yet</p></div></div>';
@@ -1481,11 +1489,25 @@ async function saveEditMatch() {
 
 async function deleteMatch(id) {
   if (!state.isAdmin) return showToast('Admin required', 'error');
-  if (!confirm('Delete this match?')) return;
+  if (!confirm('Delete this cut?')) return;
   const { error } = await sb.from('kite_matches').delete().eq('id', id);
   if (error) return showToast('Error: ' + error.message, 'error');
-  showToast('🗑 Match deleted', '');
-  await loadAll(); renderAll();
+  showToast('🗑 Cut deleted', '');
+  // Remember which report tab was active before re-render
+  const activeTabEl = document.querySelector('#report-tabs .tab-btn.active');
+  const tabNames = ['overview','history','top10','rivalries'];
+  const activeTabIdx = activeTabEl
+    ? Array.from(document.querySelectorAll('#report-tabs .tab-btn')).indexOf(activeTabEl)
+    : 0;
+  await loadAll();
+  renderAll(); // This calls renderReports() if on reports page, re-running streak calc with fresh data
+  // Restore the active tab (renderReports always resets to Overview tab)
+  if (state.currentPage === 'reports' && activeTabIdx > 0) {
+    setTimeout(() => {
+      const tabs = document.querySelectorAll('#report-tabs .tab-btn');
+      if (tabs[activeTabIdx]) setReportTab(tabNames[activeTabIdx], tabs[activeTabIdx]);
+    }, 50);
+  }
 }
 
 // --- Seasons ---
