@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.9 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.0 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -348,10 +348,10 @@ body.day-theme .team-score-card .team-name{color:#ffffff}
 <body>
 <div id="app">
   <div id="header">
-    <div class="title-area" style="display:flex;align-items:center;gap:0;flex:1;min-width:0">
+    <div class="title-area" style="display:flex;align-items:center;gap:0;flex:1;min-width:0;overflow:hidden">
       <img src="./bakss-logo.png" alt="BAKSS Kite Manager"
-           style="height:52px;width:auto;object-fit:contain;image-rendering:high-quality;flex-shrink:0"/>
-      <p id="active-season-label" style="font-size:11px;color:#94a3b8;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Loading...</p>
+           style="height:58px;width:auto;max-width:200px;object-fit:contain;object-position:center;flex-shrink:0"/>
+      <p id="active-season-label" style="font-size:11px;color:#94a3b8;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1">Loading...</p>
     </div>
     <div id="conn-indicator"></div>
     <div id="theme-indicator" style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-right:2px;transition:.3s" title="Day/Night theme"></div>
