@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.3 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.4 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -912,10 +912,10 @@ function renderDashboard() {
       (champM ? '<div class="champion-card"><div class="period">📅 ' + (selectedDate ? selectedDate.slice(0,7) : 'This Month') + '</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
       (champY ? '<div class="champion-card"><div class="period">🗓️ ' + (selectedDate ? selectedDate.slice(0,4) : 'This Year') + '</div><div class="name" style="font-size:16px">' + esc(champY.name) + '</div><div class="stat">' + champY.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
     '</div>' +
-    (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 ' + (selectedDate ? 'Champion · ' + fmtDate(selectedDate) : 'Season Champion · ' + esc(state.activeSeason||'All Time')) + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cuts · ' + (champ.wins+champ.losses>0?Math.round(champ.wins/(champ.wins+champ.losses)*100):0) + '% win rate</div></div>' : '') +
+    (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 ' + (selectedDate ? 'Champion · ' + fmtDate(selectedDate) : 'Season Champion · ' + esc(state.activeSeason||'All Time')) + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cut' + (champ.wins!==1?'s':'') + ' · ' + champ.winPct + '% win rate</div></div>' : '') +
     '<div class="card"><div class="card-title"><span class="dot"></span>' + (selectedDate ? 'Stats · ' + fmtDate(selectedDate) : 'League Stats') + '</div><div class="stats-grid">' +
       '<div class="stat-box highlight"><div class="val">' + viewMatches.length + '</div><div class="lbl">' + (selectedDate ? 'Cuts' : 'Season Cuts') + '</div></div>' +
-      '<div class="stat-box"><div class="val">' + state.players.filter(p=>p.active!==false).length + '</div><div class="lbl">Players</div></div>' +
+      '<div class="stat-box"><div class="val">' + (selectedDate ? new Set([...viewMatches.map(m=>m.winner_id),...viewMatches.map(m=>m.loser_id)]).size : state.players.filter(p=>p.active!==false).length) + '</div><div class="lbl">' + (selectedDate ? 'Players' : 'Players') + '</div></div>' +
       '<div class="stat-box"><div class="val">' + (lb[0]?lb[0].wins:0) + '</div><div class="lbl">Top Cuts</div></div>' +
       '<div class="stat-box"><div class="val">' + (bestW?bestW.mxW:0) + '</div><div class="lbl">Best Streak</div></div>' +
     '</div></div>' +
@@ -932,11 +932,17 @@ function renderDashboard() {
 
 function champion(matches) {
   if (!matches.length) return null;
-  const c = {}; matches.forEach(m => { c[m.winner_id] = (c[m.winner_id]||0)+1; });
-  const id = Object.keys(c).sort((a,b) => c[b]-c[a])[0];
-  if (!id || !c[id]) return null;
+  const w = {}, l = {};
+  matches.forEach(m => {
+    w[m.winner_id] = (w[m.winner_id]||0)+1;
+    l[m.loser_id]  = (l[m.loser_id] ||0)+1;
+  });
+  const id = Object.keys(w).sort((a,b) => w[b]-w[a])[0];
+  if (!id || !w[id]) return null;
   const p = state.players.find(p => p.id === id);
-  return p ? {...p, wins: c[id]} : null;
+  const wins = w[id]||0, losses = l[id]||0;
+  const winPct = (wins+losses>0) ? Math.round(wins/(wins+losses)*100) : 0;
+  return p ? {...p, wins, losses, winPct} : null;
 }
 
 function renderMatrix(matches) {
@@ -981,7 +987,7 @@ function renderReports() {
         '<div class="report-stat"><span class="key">Season Total</span><span class="value">' + sm.length + ' cuts</span></div>' +
         '<div class="report-stat"><span class="key">All Time</span><span class="value">' + all.length + ' cuts</span></div>' +
       '</div>' +
-      '<div class="card"><div class="card-title"><span class="dot"></span>Activity (Last 14 Days)</div><div class="chart-container"><canvas id="activity-chart"></canvas></div></div>' +
+      renderTop5Streaks(sm) +
       '<div class="card"><div class="card-title"><span class="dot"></span>Export Data</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-outline btn-sm" onclick="exportJSON()">📄 JSON</button><button class="btn btn-outline btn-sm" onclick="exportCSV()">📊 CSV</button></div></div>' +
     '</div>' +
     '<div id="report-history" style="display:none">' +
@@ -999,7 +1005,7 @@ function renderReports() {
       (rivalries(sm).slice(0,5).map(r => '<div class="rivalry-badge"><div><div class="rivalry-vs">' + esc(r.p1) + ' vs ' + esc(r.p2) + '</div><div style="font-size:11px;color:var(--text2)">' + r.total + ' total matches</div></div><div class="rivalry-score">' + r.score + '</div></div>').join('') || '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>') +
     '</div></div>';
 
-  setTimeout(() => renderChart(state.matches), 100);
+  // Activity chart removed - replaced with Top 5 Streaks
 }
 
 function setReportTab(tab, btn) {
@@ -1009,7 +1015,7 @@ function setReportTab(tab, btn) {
     const el = document.getElementById('report-' + t);
     if (el) el.style.display = t===tab ? 'block' : 'none';
   });
-  if (tab==='overview') setTimeout(() => renderChart(state.matches), 100);
+  // Chart removed
 }
 
 function filteredMatches() {
@@ -1025,6 +1031,58 @@ function updateFilter(key, val) {
   renderReports();
   const activeTab = document.querySelector('#report-tabs .tab-btn.active');
   if (activeTab) setTimeout(() => setReportTab('history', document.querySelectorAll('#report-tabs .tab-btn')[1]), 50);
+}
+
+function renderTop5Streaks(matches) {
+  // Find the top 5 best win streaks ever recorded across all match days
+  // Group matches by date, then compute per-player streaks cumulatively
+  const playerDates = {};
+  // Sort matches oldest first
+  const sorted = [...matches].sort((a,b) => (a.match_date||'').localeCompare(b.match_date||'') || (a.created_at||'').localeCompare(b.created_at||''));
+  // Track running streak per player
+  const runningStreak = {}, bestStreaks = [];
+  sorted.forEach(m => {
+    // Winner gets +1 streak
+    if (!runningStreak[m.winner_id]) runningStreak[m.winner_id] = {streak:0, date:''};
+    runningStreak[m.winner_id].streak++;
+    runningStreak[m.winner_id].date = m.match_date;
+    const ws = runningStreak[m.winner_id].streak;
+    bestStreaks.push({pid: m.winner_id, streak: ws, date: m.match_date});
+    // Loser resets streak
+    runningStreak[m.loser_id] = {streak:0, date: m.match_date};
+  });
+
+  // Get top 5 unique best streaks (deduplicate by player - keep their best)
+  const byPlayer = {};
+  bestStreaks.forEach(s => {
+    if (!byPlayer[s.pid] || s.streak > byPlayer[s.pid].streak) byPlayer[s.pid] = s;
+  });
+  const top5 = Object.values(byPlayer)
+    .sort((a,b) => b.streak - a.streak)
+    .slice(0,5);
+
+  if (!top5.length) {
+    return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks</div><div class="empty"><div class="icon">🔥</div><p>No streaks yet</p></div></div>';
+  }
+
+  const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+  const rows = top5.map((s, i) => {
+    const name = playerName(s.pid);
+    return '<div class="rivalry-badge" style="align-items:center">' +
+      '<div style="font-size:22px;margin-right:4px">' + medals[i] + '</div>' +
+      '<div style="flex:1">' +
+        '<div class="rivalry-vs" style="font-weight:700">' + esc(name) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2)">On ' + fmtDate(s.date) + '</div>' +
+      '</div>' +
+      '<div class="rivalry-score" style="display:flex;align-items:center;gap:4px">' +
+        '<span style="font-size:20px">🔥</span>' +
+        '<span style="font-size:22px;font-weight:800;color:var(--gold)">' + s.streak + '</span>' +
+        '<span style="font-size:11px;color:var(--text2)">in a row</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks</div>' + rows + '</div>';
 }
 
 function rivalries(matches) {

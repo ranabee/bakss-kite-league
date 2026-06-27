@@ -1,7 +1,7 @@
 // BAKSS Kite Manager - Service Worker
-// VERSION: 1.2.3
+// VERSION: 1.2.4
 // Increment VERSION on every deploy to force all clients to update immediately
-const VERSION = '1.2.3';
+const VERSION = '1.2.4';
 const CACHE_NAME = 'bakss-kite-' + VERSION;
 
 // On install: activate immediately, don't wait
