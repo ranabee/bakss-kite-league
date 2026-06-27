@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.4 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.5 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -549,6 +549,7 @@ let state = {
   activeSeason: null,
   currentPage: 'record',
   historyFilter: { search: '', season: '' },
+  historyPage: 1,
   dashboardDate: null,
   charts: {},
   realtimeSub: null,
@@ -995,8 +996,7 @@ function renderReports() {
       '<div class="filter-row"><button class="filter-chip ' + (!state.historyFilter.season?'active':'') + '" onclick="updateFilter(\'season\',\'\')">All Seasons</button>' +
         state.seasons.map(s => '<button class="filter-chip ' + (state.historyFilter.season===s.name?'active':'') + '" onclick="updateFilter(\'season\',\'' + esc(s.name) + '\')">' + esc(s.name) + '</button>').join('') +
       '</div>' +
-      (filtered.slice(0,50).map(m => matchHTML(m, true)).join('') || '<div class="empty"><div class="icon">🔍</div><p>No matches found</p></div>') +
-      (filtered.length>50?'<p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px">Showing 50 of '+filtered.length+' matches</p>':'') +
+      renderHistoryList(filtered) +
     '</div>' +
     '<div id="report-top10" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Top 10 — ' + esc(state.activeSeason||'All Time') + '</div>' +
       (lb.slice(0,10).map((p,i) => '<div class="rivalry-badge" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer"><div><div class="rivalry-vs">' + (i+1) + '. ' + esc(p.name) + '</div><div style="font-size:11px;color:var(--text2)">' + p.wins + ' cuts · ' + p.losses + ' losses · ' + p.winPct + '%</div></div><div class="rivalry-score">' + p.wins + '<span style="font-size:12px;color:var(--text2)">/</span>' + p.losses + '</div></div>').join('') || '<div class="empty"><div class="icon">🏆</div><p>No data yet</p></div>') +
@@ -1016,6 +1016,7 @@ function setReportTab(tab, btn) {
     if (el) el.style.display = t===tab ? 'block' : 'none';
   });
   // Chart removed
+  if (tab === 'history') state.historyPage = 1; // Reset page when switching to history
 }
 
 function filteredMatches() {
@@ -1026,8 +1027,56 @@ function filteredMatches() {
   return m;
 }
 
+function renderHistoryList(filtered) {
+  const PAGE = 50;
+  const page = state.historyPage || 1;
+  const showing = page * PAGE;
+  const visible = filtered.slice(0, showing);
+  const remaining = filtered.length - showing;
+  const isAdmin = state.isAdmin;
+
+  // Everyone sees items, but only admin gets edit/delete buttons
+  const items = visible.map(m => matchHTML(m, isAdmin)).join('');
+  const empty = '<div class="empty"><div class="icon">🔍</div><p>No matches found</p></div>';
+
+  let footer = '';
+  if (filtered.length > PAGE && !isAdmin) {
+    // Non-admin: just show count info
+    footer = '<p style="text-align:center;color:var(--text2);font-size:12px;margin:12px 0 4px">Showing first 50 of ' + filtered.length + ' cuts</p>';
+  } else if (remaining > 0 && isAdmin) {
+    // Admin: Load More button
+    footer = '<div style="text-align:center;margin:14px 0 4px">' +
+      '<button class="btn btn-outline" onclick="loadMoreHistory()" style="min-width:160px">' +
+        '📋 Load More (' + remaining + ' remaining)' +
+      '</button>' +
+      '<p style="color:var(--text2);font-size:11px;margin-top:6px">Showing ' + showing + ' of ' + filtered.length + ' cuts</p>' +
+    '</div>';
+  } else if (filtered.length > 0) {
+    footer = '<p style="text-align:center;color:var(--text2);font-size:11px;margin:10px 0 4px">All ' + filtered.length + ' cut' + (filtered.length!==1?'s':'') + ' shown</p>';
+  }
+
+  return '<div class="history-list-container">' + (items || empty) + footer + '</div>';
+}
+
+function loadMoreHistory() {
+  state.historyPage = (state.historyPage || 1) + 1;
+  // Re-render just the history list in place without full re-render
+  const histDiv = document.getElementById('report-history');
+  if (!histDiv) return;
+  const filtered = filteredMatches();
+  // Replace the content after search/filter row
+  const listContainer = histDiv.querySelector('.history-list-container');
+  if (listContainer) {
+    listContainer.outerHTML = renderHistoryList(filtered);
+  } else {
+    renderReports();
+    setTimeout(() => setReportTab('history', document.querySelectorAll('#report-tabs .tab-btn')[1]), 50);
+  }
+}
+
 function updateFilter(key, val) {
   state.historyFilter[key] = val;
+  state.historyPage = 1; // Reset to page 1 on filter change
   renderReports();
   const activeTab = document.querySelector('#report-tabs .tab-btn.active');
   if (activeTab) setTimeout(() => setReportTab('history', document.querySelectorAll('#report-tabs .tab-btn')[1]), 50);
