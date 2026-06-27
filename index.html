@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.2.7 -->
+<title>BAKSS Kite Manager</title><!-- v1.2.8 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -730,12 +730,16 @@ function playerStats(pid, matches) {
       else break;
     }
   }
-  let mxW=0, mxL=0, cur=0, ct='';
+  // mxW/mxL = best streak WITHIN a single day only
+  let mxW=0, mxL=0, curW=0, curL=0, lastDate='';
   for (const m of [...pm].reverse()) {
-    const w = m.winner_id === pid; const t = w?'W':'L';
-    if (t===ct) cur++; else { cur=1; ct=t; }
-    if (t==='W' && cur>mxW) mxW=cur;
-    if (t==='L' && cur>mxL) mxL=cur;
+    const w = m.winner_id === pid;
+    const mdate = m.match_date || '';
+    // New day resets running counters
+    if (mdate !== lastDate) { curW=0; curL=0; lastDate=mdate; }
+    if (w) { curW++; curL=0; } else { curL++; curW=0; }
+    if (curW>mxW) mxW=curW;
+    if (curL>mxL) mxL=curL;
   }
   return { wins, losses, total, winPct, ratio: losses ? (wins/losses).toFixed(1) : wins>0?'∞':'0', streak, sType, mxW, mxL };
 }
@@ -1083,33 +1087,39 @@ function updateFilter(key, val) {
 }
 
 function renderTop5Streaks(matches) {
-  // Sort ALL matches oldest first (date then created_at for same-day ordering)
+  // PER-DAY streaks only: streaks reset at midnight.
+  // A streak is consecutive wins within a single calendar day.
+  // Crossing into the next day always resets the counter.
+
+  // Sort oldest first within each day
   const sorted = [...matches].sort((a,b) =>
     (a.match_date||'').localeCompare(b.match_date||'') ||
     (a.created_at||'').localeCompare(b.created_at||'')
   );
 
-  // Walk through every match in chronological order
-  // Each player has a running streak counter that resets on any loss
-  const running = {};   // { playerId: { streak, startDate } }
-  const best = {};      // { playerId: { streak, date } } — best ever
+  // Track per-player running streak — resets when the date changes OR on a loss
+  const running = {}; // { pid: { streak, date } }
+  const best    = {}; // { pid: { streak, date } } — best single-day streak
 
   sorted.forEach(m => {
     const wId = m.winner_id, lId = m.loser_id;
     const date = m.match_date || '';
 
-    // ── WINNER: increment their streak ──
-    if (!running[wId]) running[wId] = { streak: 0, startDate: date };
+    // ── WINNER ──
+    if (!running[wId]) running[wId] = { streak: 0, date: '' };
+    // If this is a different day, reset the running counter first
+    if (running[wId].date && running[wId].date !== date) {
+      running[wId].streak = 0;
+    }
     running[wId].streak++;
-    running[wId].startDate = running[wId].startDate || date;
-
-    // Record if this is their best ever
+    running[wId].date = date;
+    // Record best for this player if new high
     if (!best[wId] || running[wId].streak > best[wId].streak) {
       best[wId] = { streak: running[wId].streak, date };
     }
 
-    // ── LOSER: their streak resets to 0 ──
-    running[lId] = { streak: 0, startDate: date };
+    // ── LOSER: reset their streak (date-change also resets but loss always resets) ──
+    running[lId] = { streak: 0, date };
   });
 
   // Top 5 across all players
