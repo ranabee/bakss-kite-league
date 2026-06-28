@@ -1,73 +1,138 @@
-// BAKSS Kite Manager - Service Worker
-// VERSION: 1.2.5
-// Increment VERSION on every deploy to force all clients to update immediately
-const VERSION = '1.2.5';
-const CACHE_NAME = 'bakss-kite-' + VERSION;
+/* ============================================================
+   BAKSS Kite League Manager — Service Worker
+   Cache-first for assets, network-first for API/auth
+   ============================================================ */
 
-// On install: activate immediately, don't wait
+const CACHE_NAME   = 'bakss-v2.0.0';
+const STATIC_CACHE = 'bakss-static-v2.0.0';
+
+// Assets to precache
+const PRECACHE = [
+  './',
+  './index.html',
+  './app.css',
+  './app.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+];
+
+// Network-first patterns (don't cache API calls)
+const NETWORK_FIRST = [
+  'supabase.co',
+  'supabase.io',
+  'stripe.com',
+];
+
+// ============================================================
+// INSTALL — Precache static assets
+// ============================================================
 self.addEventListener('install', event => {
-  console.log('[SW] Installing version', VERSION);
-  self.skipWaiting(); // Take control immediately, don't wait for old SW to die
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(['./manifest.json']))
+    caches.open(STATIC_CACHE)
+      .then(cache => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
-// On activate: delete ALL old caches, claim all clients immediately
+// ============================================================
+// ACTIVATE — Clean old caches
+// ============================================================
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating version', VERSION, '- clearing old caches');
   event.waitUntil(
-    Promise.all([
-      // Delete every cache that isn't this version
-      caches.keys().then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => {
-          console.log('[SW] Deleting old cache:', k);
-          return caches.delete(k);
-        })
-      )),
-      // Take control of all open tabs immediately
-      self.clients.claim().then(() => {
-        // Tell all clients to reload so they get fresh content
-        self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => {
-            client.postMessage({ type: 'SW_UPDATED', version: VERSION });
-          });
-        });
-      })
-    ])
+    caches.keys().then(names =>
+      Promise.all(
+        names
+          .filter(name => name !== CACHE_NAME && name !== STATIC_CACHE)
+          .map(name => caches.delete(name))
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
+// ============================================================
+// FETCH — Cache strategy
+// ============================================================
 self.addEventListener('fetch', event => {
-  const url = event.request.url;
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Never intercept: Supabase, realtime, CDN scripts
-  if (url.includes('supabase') || url.includes('realtime') ||
-      url.includes('jsdelivr') || url.includes('cdn.')) {
-    return; // Pass through to network
-  }
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
 
-  // HTML documents: ALWAYS network first, never serve stale HTML
-  if (event.request.destination === 'document' ||
-      url.endsWith('.html') || url.endsWith('/') ||
-      url === self.location.origin + '/') {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-        .then(resp => {
-          if (resp.ok) {
-            const clone = resp.clone();
-            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          }
-          return resp;
-        })
-        .catch(() => caches.match(event.request))
-    );
+  // Skip chrome-extension, etc.
+  if (!url.protocol.startsWith('http')) return;
+
+  // Network-first for API calls
+  const isAPI = NETWORK_FIRST.some(host => url.hostname.includes(host));
+  if (isAPI) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  // Everything else: cache first (manifest, icons etc)
-  event.respondWith(
-    caches.match(event.request)
-      .then(cached => cached || fetch(event.request))
+  // Cache-first for static assets
+  event.respondWith(cacheFirst(request));
+});
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    // Offline fallback
+    const fallback = await caches.match('./index.html');
+    return fallback || new Response('Offline', { status: 503 });
+  }
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    return cached || new Response('{"error":"offline"}', {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// ============================================================
+// PUSH NOTIFICATIONS
+// ============================================================
+self.addEventListener('push', event => {
+  const data = event.data?.json() || {};
+  const title   = data.title   || 'BAKSS Kite League';
+  const options = {
+    body: data.body || 'You have a new notification',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-72.png',
+    tag: data.tag || 'bakss-notif',
+    data: { url: data.url || './' },
+    vibrate: [100, 50, 100],
+  };
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || './';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(windowClients => {
+        for (const client of windowClients) {
+          if (client.url === url && 'focus' in client) return client.focus();
+        }
+        if (clients.openWindow) return clients.openWindow(url);
+      })
   );
 });

@@ -1,22 +1,108 @@
 {
-  "name": "BAKSS Kite League Manager",
+  "name": "BAKSS Kite League Manager Pro",
   "short_name": "BAKSS Kite",
-  "description": "Professional kite sparring league management",
+  "description": "Professional multi-club kite sparring league management platform",
   "start_url": "./",
+  "id": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#08101f",
-  "theme_color": "#ffd76a",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#08101F",
+  "theme_color": "#08101F",
   "orientation": "portrait-primary",
+  "lang": "en-GB",
+  "dir": "ltr",
+  "categories": ["sports", "productivity"],
   "icons": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
+      "src": "./icons/icon-16.png",
+      "sizes": "16x16",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
+      "src": "./icons/icon-32.png",
+      "sizes": "32x32",
       "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-167.png",
+      "sizes": "167x167",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "Go to your dashboard",
+      "url": "./#dashboard",
+      "icons": [{ "src": "./icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Rankings",
+      "description": "View the leaderboard",
+      "url": "./#leaderboard",
+      "icons": [{ "src": "./icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Add Record",
+      "short_name": "Record",
+      "description": "Add a cut record",
+      "url": "./#records",
+      "icons": [{ "src": "./icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshots/screen1.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard"
+    }
+  ],
+  "prefer_related_applications": false
 }
