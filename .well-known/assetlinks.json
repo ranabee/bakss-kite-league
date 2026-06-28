@@ -1,12 +1,10 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "org.bakss.kite",
-      "sha256_cert_fingerprints": [
-        "66:88:B8:D9:5D:C8:5B:01:9A:13:BE:D7:81:4C:0A:43:DD:FD:5B:CB:24:CC:FA:51:86:C9:51:09:AB:4C:18:7C"
-      ]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "org.bakss.kite",
+    "sha256_cert_fingerprints": [
+      "66:88:B8:D9:5D:C8:5B:01:9A:13:BE:D7:81:4C:0A:43:DD:FD:5B:CB:24:CC:FA:51:86:C9:51:09:AB:4C:18:7C"
+    ]
   }
-]
+}]
