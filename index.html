@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.3 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.4 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -344,9 +344,76 @@ body.day-theme .team-score-card .team-name{color:#ffffff}
 .date-display{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;min-height:50px;pointer-events:none;transition:.2s}
 .date-picker-wrap:hover .date-display,.date-picker-wrap:focus-within .date-display{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,215,106,.15)}
 .date-icon{font-size:18px;flex-shrink:0}
+
+  /* ── SPLASH SCREEN ── */
+  #splash {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #08101f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+  #splash.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #splash .splash-logo {
+    width: 220px;
+    max-width: 70vw;
+    animation: splashPulse 1.8s ease-in-out infinite;
+  }
+  #splash .splash-title {
+    color: #ffd76a;
+    font-size: 13px;
+    letter-spacing: 4px;
+    margin-top: 24px;
+    font-family: Georgia, serif;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  #splash .splash-dots {
+    display: flex;
+    gap: 8px;
+    margin-top: 32px;
+  }
+  #splash .splash-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ffd76a;
+    opacity: 0.3;
+    animation: splashDot 1.2s ease-in-out infinite;
+  }
+  #splash .splash-dot:nth-child(2) { animation-delay: 0.2s; }
+  #splash .splash-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes splashPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.04); opacity: 0.92; }
+  }
+  @keyframes splashDot {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
 </style>
 </head>
 <body>
+
+<!-- BRANDED SPLASH SCREEN - shows instantly, hides when app ready -->
+<div id="splash">
+  <img class="splash-logo" src="./bakss-logo.png" alt="BAKSS"/>
+  <div class="splash-title">Kite League Manager</div>
+  <div class="splash-dots">
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+  </div>
+</div>
+
 <div id="app">
   <div id="header">
     <div class="title-area" style="display:flex;align-items:center;gap:0;flex:1;min-width:0;overflow:hidden">
@@ -619,9 +686,20 @@ async function init() {
     updateDateBar();
     renderAll();
     registerSW();
+    // Hide splash screen smoothly once app is ready
+    setTimeout(() => {
+      const splash = document.getElementById('splash');
+      if (splash) {
+        splash.classList.add('hidden');
+        setTimeout(() => { if (splash.parentNode) splash.remove(); }, 600);
+      }
+    }, 300);
   } catch(e) {
     console.error('Init error:', e);
     showToast('Connection error. Check network.', 'error');
+    // Hide splash even on error
+    const splash = document.getElementById('splash');
+    if (splash) { splash.classList.add('hidden'); setTimeout(() => splash.remove(), 600); }
   }
   window.addEventListener('online', () => { state.isOnline = true; updateConn(); loadAll().then(renderAll); });
   window.addEventListener('offline', () => { state.isOnline = false; updateConn(); });
