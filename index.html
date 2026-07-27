@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.7 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.8 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -799,10 +799,12 @@ function seasonMatches() { return state.activeSeason ? state.matches.filter(m =>
 // the user has explicitly applied a filter.
 // ═══════════════════════════════════════════════════════════
 
-function playerStats(pid, matches) {
+function playerStats(pid, matches, streakScope) {
   // matches = whatever scope the caller decided (filtered or full)
-  // All-time streaks always come from state.matches (never filtered)
-  const allM = state.matches;
+  // streakScope = scope for mxW/mxL calculation
+  //   - undefined/null → uses state.matches (all-time, for reports/profile)
+  //   - passed explicitly → uses that scope (for date-filtered dashboard)
+  const allM = streakScope || state.matches;
 
   const wins   = matches.filter(m => m.winner_id === pid).length;
   const losses = matches.filter(m => m.loser_id  === pid).length;
@@ -846,13 +848,14 @@ function playerStats(pid, matches) {
   };
 }
 
-function leaderboard(matches, players) {
+function leaderboard(matches, players, streakScope) {
   // Primary sort: Win% (min 3 games to qualify for top positions)
   // Secondary: more games played, then alphabetical
+  // streakScope: if set, mxW/mxL calculated within that scope (date-filtered dashboard)
   const MIN_GAMES = 3;
   const rows = players
     .filter(p => p.active !== false)
-    .map(p => ({ ...p, ...playerStats(p.id, matches) }))
+    .map(p => ({ ...p, ...playerStats(p.id, matches, streakScope) }))
     .filter(p => p.total > 0);
 
   return rows.sort((a, b) => {
@@ -1012,7 +1015,8 @@ function renderDashboard() {
   const monthMatches = selectedDate ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,7))) : all.filter(m => m.match_date && m.match_date.startsWith(thisMonth));
   const yearMatches = selectedDate ? all.filter(m => m.match_date && m.match_date.startsWith(selectedDate.slice(0,4))) : all.filter(m => m.match_date && m.match_date.startsWith(thisYear));
 
-  const lb = leaderboard(viewMatches, state.players);
+  // Pass viewMatches as streakScope so mxW uses only the selected date's data
+  const lb = leaderboard(viewMatches, state.players, viewMatches);
   const champ = champion(viewMatches);
   const champD = champion(dayMatches);
   const champM = champion(monthMatches);
@@ -1020,8 +1024,8 @@ function renderDashboard() {
   const mostL = lb.length ? [...lb].sort((a,b) => b.losses - a.losses)[0] : null;
   // When date selected: best streak = best streak on that day
   // When no date (season/all-time view): best streak all-time
-  const streakLb = selectedDate ? lb : leaderboard(state.matches, state.players);
-  const bestW = streakLb.length ? [...streakLb].sort((a,b) => b.mxW - a.mxW)[0] : null;
+  // bestW: mxW already scoped correctly via streakScope in leaderboard()
+  const bestW = lb.length ? [...lb].sort((a,b) => b.mxW - a.mxW)[0] : null;
 
   const lbRows = lb.slice(0,10).map((p, i) => {
     const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
@@ -1128,7 +1132,7 @@ function renderReports() {
   const sm = seasonMatches(); // season-scoped for Season Total row
   const today = todayStr(), thisMonth = today.slice(0,7), thisYear = today.slice(0,4);
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
-  const lb = leaderboard(all, state.players); // all-time leaderboard
+  const lb = leaderboard(all, state.players, state.matches); // all-time leaderboard
   const filtered = filteredMatches();
 
   page.innerHTML =
