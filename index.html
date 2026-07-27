@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.5 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.6 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -1018,9 +1018,10 @@ function renderDashboard() {
   const champM = champion(monthMatches);
   const champY = champion(yearMatches);
   const mostL = lb.length ? [...lb].sort((a,b) => b.losses - a.losses)[0] : null;
-  // Q6a: Best Streak always from all-time data (playerStats reads state.matches internally for mxW)
-  const allTimeLb = leaderboard(state.matches, state.players);
-  const bestW = allTimeLb.length ? [...allTimeLb].sort((a,b) => b.mxW - a.mxW)[0] : null;
+  // When date selected: best streak = best streak on that day
+  // When no date (season/all-time view): best streak all-time
+  const streakLb = selectedDate ? lb : leaderboard(state.matches, state.players);
+  const bestW = streakLb.length ? [...streakLb].sort((a,b) => b.mxW - a.mxW)[0] : null;
 
   const lbRows = lb.slice(0,10).map((p, i) => {
     const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
@@ -1035,10 +1036,10 @@ function renderDashboard() {
     teamScoreHTML +
     (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.winPct + '% · ' + champD.wins + 'W ' + champD.losses + 'L' + '</div></div>' :
       (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
-      (champM ? '<div class="champion-card"><div class="period">📅 ' + (selectedDate ? selectedDate.slice(0,7) : 'This Month') + '</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
-      (champY ? '<div class="champion-card"><div class="period">🗓️ ' + (selectedDate ? selectedDate.slice(0,4) : 'This Year') + '</div><div class="name" style="font-size:16px">' + esc(champY.name) + '</div><div class="stat">' + champY.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
-    '</div>' +
+    (!selectedDate ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+      (champM ? '<div class="champion-card"><div class="period">📅 This Month</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.winPct + '% · ' + champM.wins + 'W ' + champM.losses + 'L</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
+      (champY ? '<div class="champion-card"><div class="period">🗓️ This Year</div><div class="name" style="font-size:16px">' + esc(champY.name) + '</div><div class="stat">' + champY.winPct + '% · ' + champY.wins + 'W ' + champY.losses + 'L</div></div>' : '<div class="champion-card"><div class="period">🗓️ Year</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
+    '</div>' : '') +
     (champ ? '<div class="champion-card" style="background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,215,106,.05));border-color:var(--gold)"><div class="period">🏆 ' + (selectedDate ? 'Champion · ' + fmtDate(selectedDate) : 'Season Champion · ' + esc(state.activeSeason||'All Time')) + '</div><div class="name">' + esc(champ.name) + '</div><div class="stat">' + champ.wins + ' cut' + (champ.wins!==1?'s':'') + ' · ' + champ.winPct + '% win rate</div></div>' : '') +
     '<div class="card"><div class="card-title"><span class="dot"></span>' + (selectedDate ? 'Stats · ' + fmtDate(selectedDate) : 'League Stats') + '</div><div class="stats-grid">' +
       '<div class="stat-box highlight"><div class="val">' + viewMatches.length + '</div><div class="lbl">' + (selectedDate ? 'Cuts' : 'Season Cuts') + '</div></div>' +
@@ -1054,7 +1055,7 @@ function renderDashboard() {
     '<div class="card"><div class="card-title"><span class="dot"></span>Leaderboard — ' + (selectedDate ? fmtDate(selectedDate) : esc(state.activeSeason||'All Time')) + '</div>' +
       (lb.length ? '<div style="overflow-x:auto"><table class="lb-table"><thead><tr><th>Player</th><th>✂️</th><th>❌</th><th>Win%</th><th>Streak</th></tr></thead><tbody>' + lbRows + '</tbody></table></div>' : '<div class="empty"><div class="icon">🏆</div><p>No matches for this selection</p></div>') +
     '</div>' +
-    '<div class="card"><div class="card-title"><span class="dot"></span>Head-to-Head Matrix</div>' + renderMatrix(state.matches) /* Q7a: all-time H2H */ + '</div>';
+    '<div class="card"><div class="card-title"><span class="dot"></span>Head-to-Head Matrix</div>' + renderMatrix(selectedDate ? viewMatches : state.matches) + '</div>';
 }
 
 function champion(matches) {
@@ -1123,10 +1124,11 @@ function renderMatrix(matches) {
 // --- Reports ---
 function renderReports() {
   const page = document.getElementById('page-reports');
-  const all = state.matches; // Q4a: Top10 always all-time
+  const all = state.matches;
+  const sm = seasonMatches(); // season-scoped for Season Total row
   const today = todayStr(), thisMonth = today.slice(0,7), thisYear = today.slice(0,4);
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
-  const lb = leaderboard(all, state.players); // Q4a: all-time leaderboard
+  const lb = leaderboard(all, state.players); // all-time leaderboard
   const filtered = filteredMatches();
 
   page.innerHTML =
