@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.4 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.5 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -793,13 +793,27 @@ function fmtDate(d) {
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function seasonMatches() { return state.activeSeason ? state.matches.filter(m => m.season === state.activeSeason) : state.matches; }
 
+// ═══════════════════════════════════════════════════════════
+// STATS ENGINE — single source of truth for all analytics
+// All functions use state.matches (complete dataset) unless
+// the user has explicitly applied a filter.
+// ═══════════════════════════════════════════════════════════
+
 function playerStats(pid, matches) {
-  const wins = matches.filter(m => m.winner_id === pid).length;
-  const losses = matches.filter(m => m.loser_id === pid).length;
-  const total = wins + losses;
-  const winPct = total ? Math.round(wins/total*100) : 0;
-  const pm = matches.filter(m => m.winner_id === pid || m.loser_id === pid)
-    .sort((a,b) => new Date(b.match_date) - new Date(a.match_date));
+  // matches = whatever scope the caller decided (filtered or full)
+  // All-time streaks always come from state.matches (never filtered)
+  const allM = state.matches;
+
+  const wins   = matches.filter(m => m.winner_id === pid).length;
+  const losses = matches.filter(m => m.loser_id  === pid).length;
+  const total  = wins + losses;
+  const winPct = total ? Math.round(wins / total * 100) : 0;
+
+  // Current streak — from the passed matches, most-recent first
+  const pm = matches
+    .filter(m => m.winner_id === pid || m.loser_id === pid)
+    .sort((a, b) => (b.match_date||'').localeCompare(a.match_date||'') ||
+                    (b.created_at||'').localeCompare(a.created_at||''));
   let streak = 0, sType = '';
   if (pm.length) {
     sType = pm[0].winner_id === pid ? 'W' : 'L';
@@ -809,25 +823,52 @@ function playerStats(pid, matches) {
       else break;
     }
   }
-  // mxW/mxL = best streak WITHIN a single day only
+
+  // Best single-day win/loss streak — ALWAYS from full dataset (Q6/Q8: all-time)
+  const allPm = [...allM]
+    .filter(m => m.winner_id === pid || m.loser_id === pid)
+    .sort((a, b) => (a.match_date||'').localeCompare(b.match_date||'') ||
+                    (a.created_at||'').localeCompare(b.created_at||''));
   let mxW=0, mxL=0, curW=0, curL=0, lastDate='';
-  for (const m of [...pm].reverse()) {
+  for (const m of allPm) {
     const w = m.winner_id === pid;
     const mdate = m.match_date || '';
-    // New day resets running counters
     if (mdate !== lastDate) { curW=0; curL=0; lastDate=mdate; }
     if (w) { curW++; curL=0; } else { curL++; curW=0; }
-    if (curW>mxW) mxW=curW;
-    if (curL>mxL) mxL=curL;
+    if (curW > mxW) mxW = curW;
+    if (curL > mxL) mxL = curL;
   }
-  return { wins, losses, total, winPct, ratio: losses ? (wins/losses).toFixed(1) : wins>0?'∞':'0', streak, sType, mxW, mxL };
+
+  return {
+    wins, losses, total, winPct,
+    ratio: losses ? (wins/losses).toFixed(1) : wins > 0 ? '∞' : '0',
+    streak, sType, mxW, mxL
+  };
 }
 
 function leaderboard(matches, players) {
-  return players.filter(p => p.active !== false)
+  // Primary sort: Win% (min 3 games to qualify for top positions)
+  // Secondary: more games played, then alphabetical
+  const MIN_GAMES = 3;
+  const rows = players
+    .filter(p => p.active !== false)
     .map(p => ({ ...p, ...playerStats(p.id, matches) }))
-    .filter(p => p.total > 0)
-    .sort((a,b) => b.wins - a.wins || a.losses - b.losses);
+    .filter(p => p.total > 0);
+
+  return rows.sort((a, b) => {
+    // Players with < MIN_GAMES go below qualified players
+    const aQ = a.total >= MIN_GAMES, bQ = b.total >= MIN_GAMES;
+    if (aQ && !bQ) return -1;
+    if (!aQ && bQ) return 1;
+    // Both qualified or both unqualified: sort by win%
+    if (b.winPct !== a.winPct) return b.winPct - a.winPct;
+    // Tie: more games
+    if (b.total !== a.total) return b.total - a.total;
+    // Tie: better current streak
+    if (b.streak !== a.streak) return b.streak - a.streak;
+    // Tie: alphabetical
+    return a.name.localeCompare(b.name);
+  });
 }
 
 // --- Record Page ---
@@ -977,7 +1018,9 @@ function renderDashboard() {
   const champM = champion(monthMatches);
   const champY = champion(yearMatches);
   const mostL = lb.length ? [...lb].sort((a,b) => b.losses - a.losses)[0] : null;
-  const bestW = lb.length ? [...lb].sort((a,b) => b.mxW - a.mxW)[0] : null;
+  // Q6a: Best Streak always from all-time data (playerStats reads state.matches internally for mxW)
+  const allTimeLb = leaderboard(state.matches, state.players);
+  const bestW = allTimeLb.length ? [...allTimeLb].sort((a,b) => b.mxW - a.mxW)[0] : null;
 
   const lbRows = lb.slice(0,10).map((p, i) => {
     const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
@@ -990,7 +1033,7 @@ function renderDashboard() {
 
   page.innerHTML =
     teamScoreHTML +
-    (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.wins + ' cut' + (champD.wins!==1?'s':'') + ' · ' + dateLabel + '</div></div>' :
+    (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.winPct + '% · ' + champD.wins + 'W ' + champD.losses + 'L' + '</div></div>' :
       (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
       (champM ? '<div class="champion-card"><div class="period">📅 ' + (selectedDate ? selectedDate.slice(0,7) : 'This Month') + '</div><div class="name" style="font-size:16px">' + esc(champM.name) + '</div><div class="stat">' + champM.wins + ' cuts</div></div>' : '<div class="champion-card"><div class="period">📅 Month</div><div class="name" style="font-size:14px;color:var(--text2)">No data</div></div>') +
@@ -1011,22 +1054,53 @@ function renderDashboard() {
     '<div class="card"><div class="card-title"><span class="dot"></span>Leaderboard — ' + (selectedDate ? fmtDate(selectedDate) : esc(state.activeSeason||'All Time')) + '</div>' +
       (lb.length ? '<div style="overflow-x:auto"><table class="lb-table"><thead><tr><th>Player</th><th>✂️</th><th>❌</th><th>Win%</th><th>Streak</th></tr></thead><tbody>' + lbRows + '</tbody></table></div>' : '<div class="empty"><div class="icon">🏆</div><p>No matches for this selection</p></div>') +
     '</div>' +
-    '<div class="card"><div class="card-title"><span class="dot"></span>Head-to-Head Matrix</div>' + renderMatrix(viewMatches) + '</div>';
+    '<div class="card"><div class="card-title"><span class="dot"></span>Head-to-Head Matrix</div>' + renderMatrix(state.matches) /* Q7a: all-time H2H */ + '</div>';
 }
 
 function champion(matches) {
+  // Champion = highest Win% with minimum 3 qualifying games
+  // Tiebreaks: 1) more games 2) better streak 3) alphabetical
   if (!matches.length) return null;
-  const w = {}, l = {};
-  matches.forEach(m => {
-    w[m.winner_id] = (w[m.winner_id]||0)+1;
-    l[m.loser_id]  = (l[m.loser_id] ||0)+1;
-  });
-  const id = Object.keys(w).sort((a,b) => w[b]-w[a])[0];
-  if (!id || !w[id]) return null;
-  const p = state.players.find(p => p.id === id);
-  const wins = w[id]||0, losses = l[id]||0;
-  const winPct = (wins+losses>0) ? Math.round(wins/(wins+losses)*100) : 0;
-  return p ? {...p, wins, losses, winPct} : null;
+  const MIN_GAMES = 3;
+
+  // Build per-player stats from the provided matches
+  const seen = new Set([...matches.map(m => m.winner_id), ...matches.map(m => m.loser_id)]);
+  const candidates = [...seen].map(pid => {
+    const p = state.players.find(x => x.id === pid);
+    if (!p) return null;
+    const wins   = matches.filter(m => m.winner_id === pid).length;
+    const losses = matches.filter(m => m.loser_id  === pid).length;
+    const total  = wins + losses;
+    const winPct = total ? Math.round(wins / total * 100) : 0;
+    // Current streak within these matches
+    const pm = matches
+      .filter(m => m.winner_id === pid || m.loser_id === pid)
+      .sort((a, b) => (b.match_date||'').localeCompare(a.match_date||'') ||
+                      (b.created_at||'').localeCompare(a.created_at||''));
+    let streak = 0;
+    if (pm.length) {
+      const st = pm[0].winner_id === pid ? 'W' : 'L';
+      for (const m of pm) {
+        const w = m.winner_id === pid;
+        if ((w && st==='W') || (!w && st==='L')) streak++;
+        else break;
+      }
+    }
+    return { ...p, wins, losses, total, winPct, streak };
+  }).filter(Boolean);
+
+  if (!candidates.length) return null;
+
+  // Prefer qualified players (min 3 games); if none qualify, use min 1
+  const qualified = candidates.filter(p => p.total >= MIN_GAMES);
+  const pool = qualified.length ? qualified : candidates;
+
+  return pool.sort((a, b) => {
+    if (b.winPct !== a.winPct) return b.winPct - a.winPct;
+    if (b.total  !== a.total)  return b.total  - a.total;
+    if (b.streak !== a.streak) return b.streak - a.streak;
+    return a.name.localeCompare(b.name);
+  })[0];
 }
 
 function renderMatrix(matches) {
@@ -1049,10 +1123,10 @@ function renderMatrix(matches) {
 // --- Reports ---
 function renderReports() {
   const page = document.getElementById('page-reports');
-  const all = state.matches, sm = seasonMatches();
+  const all = state.matches; // Q4a: Top10 always all-time
   const today = todayStr(), thisMonth = today.slice(0,7), thisYear = today.slice(0,4);
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
-  const lb = leaderboard(sm, state.players);
+  const lb = leaderboard(all, state.players); // Q4a: all-time leaderboard
   const filtered = filteredMatches();
 
   page.innerHTML =
@@ -1071,7 +1145,7 @@ function renderReports() {
         '<div class="report-stat"><span class="key">Season Total</span><span class="value">' + sm.length + ' cuts</span></div>' +
         '<div class="report-stat"><span class="key">All Time</span><span class="value">' + all.length + ' cuts</span></div>' +
       '</div>' +
-      renderTop5Streaks(sm) +
+      renderTop5Streaks() +
       '<div class="card"><div class="card-title"><span class="dot"></span>Export Data</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-outline btn-sm" onclick="exportJSON()">📄 JSON</button><button class="btn btn-outline btn-sm" onclick="exportCSV()">📊 CSV</button></div></div>' +
     '</div>' +
     '<div id="report-history" style="display:none">' +
@@ -1085,7 +1159,7 @@ function renderReports() {
       (lb.slice(0,10).map((p,i) => '<div class="rivalry-badge" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer"><div><div class="rivalry-vs">' + (i+1) + '. ' + esc(p.name) + '</div><div style="font-size:11px;color:var(--text2)">' + p.wins + ' cuts · ' + p.losses + ' losses · ' + p.winPct + '%</div></div><div class="rivalry-score">' + p.wins + '<span style="font-size:12px;color:var(--text2)">/</span>' + p.losses + '</div></div>').join('') || '<div class="empty"><div class="icon">🏆</div><p>No data yet</p></div>') +
     '</div></div>' +
     '<div id="report-rivalries" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Biggest Rivalries</div>' +
-      (rivalries(sm).slice(0,5).map(r => '<div class="rivalry-badge"><div><div class="rivalry-vs">' + esc(r.p1) + ' vs ' + esc(r.p2) + '</div><div style="font-size:11px;color:var(--text2)">' + r.total + ' total matches</div></div><div class="rivalry-score">' + r.score + '</div></div>').join('') || '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>') +
+      (rivalries().slice(0,5).map(r => '<div class="rivalry-badge"><div><div class="rivalry-vs">' + esc(r.p1) + ' vs ' + esc(r.p2) + '</div><div style="font-size:11px;color:var(--text2)">' + r.total + ' total matches</div></div><div class="rivalry-score">' + r.score + '</div></div>').join('') || '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>') +
     '</div></div>';
 
   // Activity chart removed - replaced with Top 5 Streaks
@@ -1165,84 +1239,79 @@ function updateFilter(key, val) {
   if (activeTab) setTimeout(() => setReportTab('history', document.querySelectorAll('#report-tabs .tab-btn')[1]), 50);
 }
 
-function renderTop5Streaks(matches) {
-  // PER-DAY streaks only: streaks reset at midnight.
-  // A streak is consecutive wins within a single calendar day.
-  // Crossing into the next day always resets the counter.
+function renderTop5Streaks() {
+  // Q1c: ALWAYS uses state.matches — complete all-time dataset, never filtered.
+  // Recalculates automatically because renderReports() is called after every
+  // insert / edit / delete via renderAll().
+  // Per-day streaks: consecutive wins within one calendar day only.
 
-  // Sort oldest first within each day
-  const sorted = [...matches].sort((a,b) =>
+  const sorted = [...state.matches].sort((a, b) =>
     (a.match_date||'').localeCompare(b.match_date||'') ||
     (a.created_at||'').localeCompare(b.created_at||'')
   );
 
-  // Track per-player running streak — resets when the date changes OR on a loss
   const running = {}; // { pid: { streak, date } }
-  const best    = {}; // { pid: { streak, date } } — best single-day streak
+  const best    = {}; // { pid: { streak, date } }
 
   sorted.forEach(m => {
     const wId = m.winner_id, lId = m.loser_id;
     const date = m.match_date || '';
 
-    // ── WINNER ──
     if (!running[wId]) running[wId] = { streak: 0, date: '' };
-    // If this is a different day, reset the running counter first
-    if (running[wId].date && running[wId].date !== date) {
-      running[wId].streak = 0;
-    }
+    if (running[wId].date !== date) running[wId].streak = 0;
     running[wId].streak++;
     running[wId].date = date;
-    // Record best for this player if new high
-    if (!best[wId] || running[wId].streak > best[wId].streak) {
+    if (!best[wId] || running[wId].streak > best[wId].streak)
       best[wId] = { streak: running[wId].streak, date };
-    }
 
-    // ── LOSER: reset their streak (date-change also resets but loss always resets) ──
+    // Loss resets streak immediately
     running[lId] = { streak: 0, date };
   });
 
-  // Top 5 across all players
   const top5 = Object.entries(best)
     .map(([pid, b]) => ({ pid, streak: b.streak, date: b.date }))
-    .sort((a, b) => b.streak - a.streak)
+    .sort((a, b) => b.streak - a.streak || a.pid.localeCompare(b.pid))
     .slice(0, 5);
 
-  if (!top5.length) {
+  if (!top5.length)
     return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks</div><div class="empty"><div class="icon">🔥</div><p>No streaks yet</p></div></div>';
-  }
 
   const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
-  const rows = top5.map((s, i) => {
-    const name = playerName(s.pid);
-    return '<div class="rivalry-badge" style="align-items:center">' +
+  const rows = top5.map((s, i) =>
+    '<div class="rivalry-badge" style="align-items:center">' +
       '<div style="font-size:22px;margin-right:4px">' + medals[i] + '</div>' +
       '<div style="flex:1">' +
-        '<div class="rivalry-vs" style="font-weight:700">' + esc(name) + '</div>' +
-        '<div style="font-size:11px;color:var(--text2)">On ' + fmtDate(s.date) + '</div>' +
+        '<div class="rivalry-vs" style="font-weight:700">' + esc(playerName(s.pid)) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2)">On ' + fmtDate(s.date) + ' · All-Time</div>' +
       '</div>' +
       '<div class="rivalry-score" style="display:flex;align-items:center;gap:4px">' +
         '<span style="font-size:20px">🔥</span>' +
         '<span style="font-size:22px;font-weight:800;color:var(--gold)">' + s.streak + '</span>' +
         '<span style="font-size:11px;color:var(--text2)">in a row</span>' +
       '</div>' +
-    '</div>';
-  }).join('');
+    '</div>'
+  ).join('');
 
-  return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks</div>' + rows + '</div>';
+  return '<div class="card"><div class="card-title"><span class="dot"></span>🔥 Top 5 Win Streaks — All Time</div>' + rows + '</div>';
 }
 
-function rivalries(matches) {
+function rivalries() {
+  // Q5: Always all-time — uses state.matches, never filtered.
   const pairs = {};
-  matches.forEach(m => {
+  state.matches.forEach(m => {
     const key = [m.winner_id, m.loser_id].sort().join('|');
-    if (!pairs[key]) pairs[key] = { counts: {}, total: 0 };
+    if (!pairs[key]) pairs[key] = { counts: {}, total: 0, ids: [m.winner_id, m.loser_id].sort() };
     pairs[key].counts[m.winner_id] = (pairs[key].counts[m.winner_id]||0)+1;
     pairs[key].total++;
   });
   return Object.entries(pairs).map(([key, d]) => {
-    const [i1,i2] = key.split('|');
-    return { p1: playerName(i1), p2: playerName(i2), total: d.total, score: (d.counts[i1]||0) + '-' + (d.counts[i2]||0) };
-  }).sort((a,b) => b.total - a.total);
+    const [i1, i2] = d.ids;
+    return {
+      p1: playerName(i1), p2: playerName(i2),
+      total: d.total,
+      score: (d.counts[i1]||0) + ' - ' + (d.counts[i2]||0)
+    };
+  }).sort((a, b) => b.total - a.total);
 }
 
 function renderChart(matches) {
