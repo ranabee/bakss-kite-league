@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.6 -->
+<title>BAKSS Kite Manager</title><!-- v1.3.7 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -1157,8 +1157,8 @@ function renderReports() {
       '</div>' +
       renderHistoryList(filtered) +
     '</div>' +
-    '<div id="report-top10" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Top 10 — ' + esc(state.activeSeason||'All Time') + '</div>' +
-      (lb.slice(0,10).map((p,i) => '<div class="rivalry-badge" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer"><div><div class="rivalry-vs">' + (i+1) + '. ' + esc(p.name) + '</div><div style="font-size:11px;color:var(--text2)">' + p.wins + ' cuts · ' + p.losses + ' losses · ' + p.winPct + '%</div></div><div class="rivalry-score">' + p.wins + '<span style="font-size:12px;color:var(--text2)">/</span>' + p.losses + '</div></div>').join('') || '<div class="empty"><div class="icon">🏆</div><p>No data yet</p></div>') +
+    '<div id="report-top10" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Top 10 — Most Wins · All Time</div>' +
+      ([...lb].sort((a,b) => b.wins - a.wins || a.losses - b.losses).slice(0,10).map((p,i) => '<div class="rivalry-badge" onclick="openProfile(\'' + p.id + '\')" style="cursor:pointer"><div><div class="rivalry-vs">' + (i+1) + '. ' + esc(p.name) + '</div><div style="font-size:11px;color:var(--text2)">' + p.wins + ' cuts · ' + p.losses + ' losses · ' + p.winPct + '%</div></div><div class="rivalry-score">' + p.wins + '<span style="font-size:12px;color:var(--text2)">/</span>' + p.losses + '</div></div>').join('') || '<div class="empty"><div class="icon">🏆</div><p>No data yet</p></div>') +
     '</div></div>' +
     '<div id="report-rivalries" style="display:none"><div class="card"><div class="card-title"><span class="dot"></span>Biggest Rivalries</div>' +
       (rivalries().slice(0,5).map(r => '<div class="rivalry-badge"><div><div class="rivalry-vs">' + esc(r.p1) + ' vs ' + esc(r.p2) + '</div><div style="font-size:11px;color:var(--text2)">' + r.total + ' total matches</div></div><div class="rivalry-score">' + r.score + '</div></div>').join('') || '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>') +
