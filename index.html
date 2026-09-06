@@ -618,7 +618,7 @@ let state = {
   currentPage: 'record',
   historyFilter: { search: '', season: '' },
   historyPage: 1,
-  recordFilterDate: null, // date filter on Record page cuts list
+  recordDate: null,
   dashboardDate: null,
   charts: {},
   realtimeSub: null,
@@ -883,17 +883,14 @@ function renderRecord() {
   const pOpts = ap.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
   const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===state.activeSeason?' selected':'') + '>' + esc(s.name) + '</option>').join('');
   const today = todayStr();
-  const todayCount = sm.filter(m => m.match_date === today).length;
-
-  // Date filter for cuts list — defaults to today
-  const filterDate = state.recordFilterDate || today;
-  const filteredCuts = state.matches
-    .filter(m => m.match_date === filterDate)
+  const recDate = state.recordDate || today;
+  const todayCount = sm.filter(m => m.match_date === recDate).length;
+  // Recent cuts: if a date is selected, show ALL cuts on that date
+  // Otherwise show last 50 with note (no arbitrary 20 limit)
+  const dateFiltered = sm.filter(m => m.match_date === recDate)
     .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
-
-  const cutsHTML = filteredCuts.length
-    ? filteredCuts.map(m => matchHTML(m, true)).join('')
-    : '<div class="empty"><div class="icon">✂️</div><p>No cuts on ' + fmtDate(filterDate) + '</p></div>';
+  const recent = dateFiltered;
+  const recentDateCount = dateFiltered.length;
 
   page.innerHTML =
     '<div class="card">' +
@@ -909,27 +906,25 @@ function renderRecord() {
     '</div>' +
     '<div class="card"><div class="card-title"><span class="dot"></span>Today\'s Activity</div>' +
       '<div class="stats-grid three">' +
-        '<div class="stat-box highlight"><div class="val">' + todayCount + '</div><div class="lbl">Today</div></div>' +
+        '<div class="stat-box highlight"><div class="val">' + todayCount + '</div><div class="lbl">' + (recDate===today?'Today':fmtDate(recDate).split(' ').slice(0,2).join(' ')) + '</div></div>' +
         '<div class="stat-box"><div class="val">' + sm.length + '</div><div class="lbl">Season</div></div>' +
         '<div class="stat-box"><div class="val">' + ap.length + '</div><div class="lbl">Players</div></div>' +
       '</div></div>' +
     '<div class="card">' +
-      '<div class="card-title"><span class="dot"></span>Cuts on ' + fmtDate(filterDate) + ' — <span style="color:var(--gold)">' + filteredCuts.length + ' total</span></div>' +
-      '<div style="margin-bottom:12px">' +
-        '<div class="date-picker-wrap" onclick="openDatePicker(\'rec-filter-date\')"><input type="date" id="rec-filter-date" value="' + filterDate + '" onchange="setRecordFilterDate(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/><div class="date-display"><span id="rec-filter-date-display">' + fmtDate(filterDate) + '</span><span class="date-icon">📅</span></div></div>' +
+      '<div class="card-title"><span class="dot"></span>Cuts on Date' +
+        '<span style="font-size:12px;color:var(--text2);font-weight:400;margin-left:8px">' + recentDateCount + ' cut' + (recentDateCount!==1?'s':'') + '</span>' +
       '</div>' +
-      cutsHTML +
+      // Date picker for the cuts list
+      '<div class="date-picker-wrap" style="margin-bottom:12px" onclick="openDatePicker(\'record-filter-date\')"><input type="date" id="record-filter-date" value="' + recDate + '" onchange="state.recordDate=this.value;renderRecord()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/><div class="date-display"><span id="record-filter-display">📅 ' + fmtDate(recDate) + '</span><span style="font-size:12px;color:var(--text2)">tap to change date</span></div></div>' +
+      (recent.length ? recent.map(m => matchHTML(m, true)).join('') : '<div class="empty"><div class="icon">✂️</div><p>No cuts on ' + fmtDate(recDate) + '</p></div>') +
     '</div>';
-}
-
-function setRecordFilterDate(val) {
-  state.recordFilterDate = val || todayStr();
-  renderRecord();
 }
 
 function matchHTML(m, adminActions) {
   const w = playerName(m.winner_id), l = playerName(m.loser_id);
-  const admin = adminActions && state.isAdmin;
+  // On record page (adminActions=true from renderRecord): show edit for everyone
+  // On other pages: only show for actual admins
+  const admin = adminActions;
   return '<div class="match-item" id="match-' + m.id + '">' +
     '<span class="cut-badge">✂️</span>' +
     '<div class="match-players">' +
