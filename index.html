@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.4.0 -->
+<title>BAKSS Kite Manager</title><!-- v1.4.1 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -916,7 +916,7 @@ function renderRecord() {
       '</div>' +
       // Date picker for the cuts list
       '<div class="date-picker-wrap" style="margin-bottom:12px" onclick="openDatePicker(\'record-filter-date\')"><input type="date" id="record-filter-date" value="' + recDate + '" onchange="state.recordDate=this.value;renderRecord()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2"/><div class="date-display"><span id="record-filter-display">📅 ' + fmtDate(recDate) + '</span><span style="font-size:12px;color:var(--text2)">tap to change date</span></div></div>' +
-      (recent.length ? recent.map(m => matchHTML(m, true)).join('') : '<div class="empty"><div class="icon">✂️</div><p>No cuts on ' + fmtDate(recDate) + '</p></div>') +
+      (recent.length ? recent.map(m => matchHTML(m, state.isAdmin)).join('') : '<div class="empty"><div class="icon">✂️</div><p>No cuts on ' + fmtDate(recDate) + '</p></div>') +
     '</div>';
 }
 
