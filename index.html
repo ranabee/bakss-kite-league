@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.3.9 -->
+<title>BAKSS Kite Manager</title><!-- v1.4.0 -->
 <script src="./supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
         onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js'"></script>
@@ -1551,6 +1551,7 @@ function adminLogout() {
 
 // --- Players CRUD ---
 async function addPlayer() {
+  if (!state.isAdmin) return showToast('Admin access required', 'error');
   const nameEl = document.getElementById('new-player-name');
   const name = nameEl.value.trim();
   if (!name) return showToast('Enter a player name', 'error');
