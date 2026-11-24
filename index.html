@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.5.0 -->
+<title>BAKSS Kite Manager</title><!-- v1.6.0 -->
 <script src="./supabase.min.js"></script>
 <style>
 :root{
@@ -445,12 +445,14 @@ body.day-theme .team-score-card .team-name{color:#ffffff}
   <div id="content">
     <div id="page-record" class="section-active"></div>
     <div id="page-dashboard" class="section-hidden"></div>
+    <div id="page-teamresult" class="section-hidden"></div>
     <div id="page-reports" class="section-hidden"></div>
     <div id="page-settings" class="section-hidden"></div>
   </div>
   <nav id="nav">
     <button class="nav-btn active" onclick="showPage('record')"><span class="nav-icon">✂️</span>Record</button>
     <button class="nav-btn" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
+    <button class="nav-btn" onclick="showPage('teamresult')"><span class="nav-icon">🏁</span>Team Result</button>
     <button class="nav-btn" onclick="showPage('reports')"><span class="nav-icon">📈</span>Reports</button>
     <button class="nav-btn" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>Settings</button>
   </nav>
@@ -481,6 +483,7 @@ body.day-theme .team-score-card .team-name{color:#ffffff}
     <button class="modal-close" onclick="closeModal('modal-add-player')">✕</button>
     <div class="modal-title">👤 Add Player</div>
     <div class="form-group"><label>Player Name</label><input type="text" id="new-player-name" placeholder="Enter player name" autocomplete="off"/></div>
+    <label style="display:flex;gap:8px;align-items:center;margin:4px 0 14px;font-size:13px;color:var(--text2)"><input type="checkbox" id="new-player-guest"/> Visiting / guest player (match day only - kept out of league rankings)</label>
     <button class="btn btn-gold" onclick="addPlayer()">Add Player</button>
   </div>
 </div>
@@ -730,8 +733,13 @@ async function loadAll() {
     fetchAll('kite_teams', [['team_date', false], ['created_at', false], ['id', false]])
   ]);
   if (matches.error || players.error) showToast('Could not refresh data - showing last loaded data', 'error');
-  if (players.data) state.players = players.data;
-  if (matches.data) state.matches = matches.data.map(m => ({...m, match_date: m.match_date || m.session_date}));
+  if (players.data) { state.allPlayers = players.data; state.players = players.data.filter(p => !p.is_guest); }
+  if (matches.data) {
+    state.allMatches = matches.data.map(m => ({...m, match_date: m.match_date || m.session_date}));
+    const gids = new Set((state.allPlayers || []).filter(p => p.is_guest).map(p => p.id));
+    // League stats never include visiting (guest) players or the cuts they played in
+    state.matches = gids.size ? state.allMatches.filter(m => !gids.has(m.winner_id) && !gids.has(m.loser_id)) : state.allMatches;
+  }
   if (seasons.data) state.seasons = seasons.data;
   if (teams.data) state.teams = teams.data;
   // keep the user's own season choice (incl. "All Time") across refreshes
@@ -760,7 +768,7 @@ function showPage(page) {
     el.className = el.id === 'page-' + page ? 'section-active' : 'section-hidden';
   });
   document.querySelectorAll('.nav-btn').forEach((btn, i) => {
-    btn.className = 'nav-btn' + (['record','dashboard','reports','settings'][i] === page ? ' active' : '');
+    btn.className = 'nav-btn' + (['record','dashboard','teamresult','reports','settings'][i] === page ? ' active' : '');
   });
   renderPage(page);
 }
@@ -774,9 +782,110 @@ function renderAll() {
   const inp = document.getElementById('dash-date-input');
   if (inp && state.dashboardDate) inp.value = state.dashboardDate;
 }
+// ═══ TEAM RESULT (team vs team for one match day) ═══
+const TEAM_COLORS = ['#38bdf8', '#f97316', '#a78bfa', '#34d399', '#f472b6', '#facc15'];
+function trDefaultDate() {
+  const t = todayStr(), ds = [...new Set(state.teams.map(x => x.team_date).filter(Boolean))].sort();
+  if (ds.includes(t)) return t;
+  const past = ds.filter(d => d <= t);
+  return past.length ? past[past.length - 1] : (ds[0] || t);
+}
+function setTrDate(d) { if (d) { state.trDate = d; state.trTab = 'all'; renderTeamResult(); } }
+function setTrTab(t) { state.trTab = t; renderTeamResult(); }
+// Every cut on the day counts for a team if the winner/loser is on its roster (own-teammate cuts included)
+function teamResultData(d) {
+  const teams = state.teams.filter(t => t.team_date === d).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '') || a.name.localeCompare(b.name));
+  const matches = state.allMatches.filter(m => m.match_date === d && m.winner_id && m.loser_id && m.winner_id !== m.loser_id);
+  const owner = {}, multi = new Set();
+  teams.forEach((t, i) => (t.player_ids || []).forEach(id => { if (id in owner) multi.add(id); else owner[id] = i; }));
+  const T = teams.map((t, i) => ({ team: t, idx: i, color: TEAM_COLORS[i % TEAM_COLORS.length], wins: 0, losses: 0, cross: {} }));
+  const inter = [];
+  for (const m of matches) {
+    const wi = owner[m.winner_id], li = owner[m.loser_id];
+    if (wi !== undefined) T[wi].wins++;
+    if (li !== undefined) T[li].losses++;
+    if (wi !== undefined && li !== undefined && wi !== li) { inter.push(m); T[wi].cross[li] = (T[wi].cross[li] || 0) + 1; }
+  }
+  T.forEach(x => { x.total = x.wins + x.losses; x.pct = x.total ? x.wins / x.total : 0; });
+  const rostered = matches.filter(m => owner[m.winner_id] !== undefined || owner[m.loser_id] !== undefined);
+  const lb = leaderboard(matches, state.allPlayers.filter(p => owner[p.id] !== undefined), matches).map(p => ({ ...p, ti: owner[p.id] }));
+  return { teams, T, matches, owner, multi, inter, lb, rostered, rivals: rivalriesFrom(inter, 10) };
+}
+function trTeamTag(ti, T) { const t = T[ti]; return t ? '<span style="font-size:10px;font-weight:700;color:' + t.color + ';border:1px solid ' + t.color + ';border-radius:8px;padding:1px 6px;margin-left:6px">' + esc(t.team.name) + '</span>' : ''; }
+function trSummary(D, d) {
+  const T = [...D.T].sort((a, b) => b.pct - a.pct || b.wins - a.wins);
+  let txt = '🏁 Team Result · ' + fmtDate(d) + '\n' + T.map(x => x.team.name + ': ' + x.wins + 'W ' + x.losses + 'L (' + Math.round(x.pct * 100) + '%)').join('\n');
+  const top = [...D.lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac)[0];
+  if (top) txt += '\n⭐ Top cutter: ' + top.name + ' (' + top.wins + ' wins)';
+  return txt;
+}
+function shareTeamResult() {
+  const d = state.trDate || trDefaultDate(), txt = trSummary(teamResultData(d), d);
+  if (navigator.share) navigator.share({ text: txt }).catch(() => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => showToast('Copied to clipboard', 'success'));
+}
+function renderTeamResult() {
+  const page = document.getElementById('page-teamresult'); if (!page) return;
+  const d = state.trDate || (state.trDate = trDefaultDate());
+  const D = teamResultData(d);
+  const dates = [...new Set(state.teams.map(t => t.team_date).filter(Boolean))].sort().reverse().slice(0, 6);
+  let h = '<div class="card"><div class="card-title"><span class="dot"></span>🏁 Team Result</div>' +
+    '<input type="date" id="tr-date" value="' + d + '" onchange="setTrDate(this.value)" style="width:100%;padding:12px;border-radius:10px;background:var(--card2,var(--card));color:var(--text);border:1px solid var(--border);font-size:15px"/>' +
+    (dates.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">' + dates.map(x => '<button class="season-pill' + (x === d ? ' active' : '') + '" onclick="setTrDate(\'' + x + '\')">' + fmtDate(x).slice(0, 6) + '</button>').join('') + '</div>' : '') + '</div>';
+  if (!D.teams.length) {
+    page.innerHTML = h + '<div class="card"><div class="empty"><div class="icon">🪁</div><p>No teams for ' + fmtDate(d) + '.<br><span style="font-size:11px">Create teams in Settings → Teams, dated ' + fmtDate(d) + '.</span></p></div></div>'; return;
+  }
+  const N = D.T.length, many = N > 2;
+  // Scoreboard
+  if (!many) {
+    const [A, B] = D.T, tot = (A.wins + B.wins) || 1, lead = A.wins === B.wins ? 'Level' : (A.wins > B.wins ? A.team.name : B.team.name) + ' lead';
+    h += '<div class="card"><div class="card-title"><span class="dot"></span>Scoreboard · ' + fmtDate(d) + '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:center">' +
+      '<div style="flex:1"><div style="font-weight:800;color:' + A.color + '">' + esc(A.team.name) + '</div><div style="font-size:38px;font-weight:900">' + A.wins + '</div><div style="font-size:11px;color:var(--text2)">' + A.losses + ' lost</div></div>' +
+      '<div style="font-weight:800;color:var(--text2)">VS</div>' +
+      '<div style="flex:1"><div style="font-weight:800;color:' + B.color + '">' + esc(B.team.name) + '</div><div style="font-size:38px;font-weight:900">' + B.wins + '</div><div style="font-size:11px;color:var(--text2)">' + B.losses + ' lost</div></div></div>' +
+      '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:12px 0 6px"><div style="width:' + (A.wins / tot * 100) + '%;background:' + A.color + '"></div><div style="flex:1;background:' + B.color + '"></div></div>' +
+      '<div style="text-align:center;font-size:12px;color:var(--text2)">' + lead + ' · head-to-head between teams: ' + (A.cross[1] || 0) + ' - ' + (B.cross[0] || 0) + '</div></div>';
+  } else {
+    h += '<div class="card"><div class="card-title"><span class="dot"></span>Scoreboard · ' + fmtDate(d) + '</div><table class="lb-table"><tr><th>Team</th><th>W</th><th>L</th><th>Win%</th></tr>' +
+      [...D.T].sort((a, b) => b.pct - a.pct || b.wins - a.wins).map(x => '<tr><td style="color:' + x.color + ';font-weight:700">' + esc(x.team.name) + '</td><td>' + x.wins + '</td><td>' + x.losses + '</td><td>' + Math.round(x.pct * 100) + '%</td></tr>').join('') + '</table></div>';
+  }
+  // Quick stats
+  const playing = new Set(); D.matches.forEach(m => { playing.add(m.winner_id); playing.add(m.loser_id); });
+  h += '<div class="stats-grid three"><div class="stat-box highlight"><div class="val">' + D.matches.length + '</div><div class="lbl">Cuts</div></div>' +
+    '<div class="stat-box"><div class="val">' + D.inter.length + '</div><div class="lbl">Between teams</div></div>' +
+    '<div class="stat-box"><div class="val">' + playing.size + '</div><div class="lbl">Players</div></div></div>';
+  if (D.multi.size) h += '<div class="card" style="font-size:12px;color:var(--text2)">⚠️ ' + [...D.multi].map(playerName).map(esc).join(', ') + ' is on more than one team - counted for the first team only.</div>';
+  // Awards
+  const aw = [];
+  D.T.forEach(x => { const mv = D.lb.filter(p => p.ti === x.idx).sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name))[0]; if (mv) aw.push('<div class="report-stat"><span class="key">⭐ ' + esc(x.team.name) + ' MVP</span><span class="value">' + esc(mv.name) + ' (' + mv.wins + 'W)</span></div>'); });
+  const bs = [...D.lb].sort((a, b) => b.mxW - a.mxW || a.name.localeCompare(b.name))[0];
+  if (bs && bs.mxW > 1) aw.push('<div class="report-stat"><span class="key">🔥 Best streak</span><span class="value">' + esc(bs.name) + ' (' + bs.mxW + ')</span></div>');
+  if (D.rivals[0]) aw.push('<div class="report-stat"><span class="key">⚔️ Top rivalry</span><span class="value">' + esc(D.rivals[0].p1) + ' vs ' + esc(D.rivals[0].p2) + ' (' + D.rivals[0].score + ')</span></div>');
+  if (aw.length) h += '<div class="card"><div class="card-title"><span class="dot"></span>Awards</div>' + aw.join('') + '</div>';
+  // Leaderboard with tabs
+  const tab = state.trTab || 'all';
+  const tabs = '<div class="tabs" style="display:flex;gap:4px;margin-bottom:10px;overflow-x:auto"><button class="tab-btn' + (tab === 'all' ? ' active' : '') + '" onclick="setTrTab(\'all\')">Overall</button>' +
+    D.T.map(x => '<button class="tab-btn' + (tab === String(x.idx) ? ' active' : '') + '" onclick="setTrTab(\'' + x.idx + '\')">' + esc(x.team.name) + '</button>').join('') + '</div>';
+  const rows = tab === 'all' ? D.lb : D.lb.filter(p => String(p.ti) === tab);
+  h += '<div class="card"><div class="card-title"><span class="dot"></span>Leaderboard</div>' + tabs +
+    (rows.length ? '<table class="lb-table"><tr><th>#</th><th style="text-align:left">Player</th><th>W</th><th>L</th><th>Win%</th></tr>' +
+      rows.map((p, i) => '<tr><td>' + (i + 1) + '</td><td style="text-align:left"><span class="player-name-cell">' + esc(p.name) + '</span>' + (tab === 'all' ? trTeamTag(p.ti, D.T) : '') + (p.is_guest ? ' <small style="opacity:.6">guest</small>' : '') + '</td><td style="color:var(--green);font-weight:700">' + p.wins + '</td><td style="color:var(--red)">' + p.losses + '</td><td>' + p.winPct + '%</td></tr>').join('') + '</table>'
+      : '<div class="empty"><div class="icon">✂️</div><p>No cuts recorded yet</p></div>') + '</div>';
+  // Top 10 cutters
+  const top = [...D.lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name)).slice(0, 10);
+  h += '<div class="card"><div class="card-title"><span class="dot"></span>Top 10 Cutters</div>' +
+    (top.length ? top.map((p, i) => '<div class="report-stat"><span class="key"><b style="color:var(--gold)">' + (i + 1) + '</b> ' + esc(p.name) + trTeamTag(p.ti, D.T) + '</span><span class="value">' + p.wins + ' wins</span></div>').join('') : '<div class="empty"><p>No cuts yet</p></div>') + '</div>';
+  // Rivalries (only between teams)
+  h += '<div class="card"><div class="card-title"><span class="dot"></span>Top 10 Rivalries <span style="font-size:11px;color:var(--text2);font-weight:400">between teams, this day</span></div>' + renderRivalryRows(10, D.rivals) + '</div>';
+  h += '<button class="btn btn-gold" onclick="shareTeamResult()">📤 Share result</button><div style="height:10px"></div>';
+  page.innerHTML = h;
+}
+
 function renderPage(p) {
   if (p==='record') renderRecord();
   if (p==='dashboard') renderDashboard();
+  if (p==='teamresult') renderTeamResult();
   if (p==='reports') renderReports();
   if (p==='settings') renderSettings();
 }
@@ -800,12 +909,13 @@ function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function playerName(id) { const p = state.players.find(p => p.id === id); return p ? p.name : 'Unknown'; }
+function playerName(id) { const p = (state.allPlayers || state.players).find(p => p.id === id); return p ? p.name : 'Unknown'; }
 function fmtDate(d) {
   if (!d) return '';
   return new Date(d + (d.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
 }
 function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function seasonMatchesAll() { return state.activeSeason ? state.allMatches.filter(m => m.season === state.activeSeason) : state.allMatches; }
 function seasonMatches() { return state.activeSeason ? state.matches.filter(m => m.season === state.activeSeason) : state.matches; }
 
 // ═══════════════════════════════════════════════════════════
@@ -873,9 +983,10 @@ function champion(matches) {
 function topCutter(lb) { return [...lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name))[0] || null; }
 
 // Rivalries: all-time, every pair that has actually played. Ranked by cuts played, then closest score, then most recent, then A-Z.
-function rivalries(limit) {
-  const known = new Set(state.players.map(p => p.id)), pairs = {};
-  for (const m of state.matches) {
+function rivalries(limit) { return rivalriesFrom(state.matches, limit); }
+function rivalriesFrom(matches, limit) {
+  const known = new Set(state.allPlayers.map(p => p.id)), pairs = {};
+  for (const m of matches) {
     const w = m.winner_id, l = m.loser_id;
     if (!w || !l || w === l || !known.has(w) || !known.has(l)) continue;
     const ids = [w, l].sort(), k = ids.join('|'), p = pairs[k] || (pairs[k] = { ids, w: {}, total: 0, last: '' });
@@ -890,8 +1001,8 @@ function rivalries(limit) {
   out.sort((x, y) => y.total - x.total || x.margin - y.margin || y.last.localeCompare(x.last) || x.p1.localeCompare(y.p1) || x.p2.localeCompare(y.p2));
   return limit ? out.slice(0, limit) : out;
 }
-function renderRivalryRows(n) {
-  const rows = rivalries(n);
+function renderRivalryRows(n, list) {
+  const rows = list || rivalries(n);
   if (!rows.length) return '<div class="empty"><div class="icon">⚔️</div><p>No rivalries yet</p></div>';
   return rows.map((r, i) => {
     const pct = Math.round(r.w1 / r.total * 100);
@@ -909,9 +1020,9 @@ function renderRivalryRows(n) {
 // --- Record Page ---
 function renderRecord() {
   const page = document.getElementById('page-record');
-  const sm = seasonMatches();
-  const ap = state.players.filter(p => p.active !== false);
-  const pOpts = ap.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+  const sm = seasonMatchesAll();
+  const ap = state.allPlayers.filter(p => p.active !== false);
+  const pOpts = ap.map(p => '<option value="' + p.id + '">' + esc(p.name) + (p.is_guest ? ' (guest)' : '') + '</option>').join('');
   const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (s.name===state.activeSeason?' selected':'') + '>' + esc(s.name) + '</option>').join('');
   const today = todayStr();
   const recDate = state.recordDate || today;
@@ -1367,7 +1478,7 @@ function renderTeamsSection() {
   } else {
     todayTeams.forEach(function(t) {
       const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
-      const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === today; }));
+      const score = getTeamScore(t, state.allMatches.filter(function(m){ return m.match_date === today; }));
       const safeId = t.id.replace(/[\'"]/g, '');
       const editBtn = '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:5px 10px" onclick="openEditTeam(\'' + safeId + '\')">✏️ Edit</button>';
       const delBtn = state.isAdmin ? '<button class="btn btn-sm" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)" onclick="deleteTeam(\'' + safeId + '\')">🗑 Delete</button>' : '';
@@ -1413,7 +1524,7 @@ function openPastTeams() {
       html += '<div style="font-size:12px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">' + fmtDate(date) + '</div>';
       teams.forEach(function(t) {
         const members = (t.player_ids || []).map(function(id){ return playerName(id); }).filter(function(n){ return n !== 'Unknown'; }).join(', ');
-        const score = getTeamScore(t, state.matches.filter(function(m){ return m.match_date === date; }));
+        const score = getTeamScore(t, state.allMatches.filter(function(m){ return m.match_date === date; }));
         const safeId = t.id.replace(/[\'"]/g, '');
 
         // Admin gets edit + delete, everyone else view only
@@ -1503,10 +1614,12 @@ async function addPlayer() {
   const name = nameEl.value.trim().replace(/\s+/g, ' ');
   if (!name) return showToast('Enter a player name', 'error');
   const nl = name.toLowerCase();
-  if (state.players.some(p => p.name.toLowerCase() === nl)) return showToast('Player already exists!', 'error');
-  const { error } = await sb.from('kite_players').insert({ name, name_lower: nl, active: true });
+  if (state.allPlayers.some(p => p.name.toLowerCase() === nl)) return showToast('Player already exists!', 'error');
+  const guest = !!(document.getElementById('new-player-guest') || {}).checked;
+  const row = { name, name_lower: nl, active: true }; if (guest) row.is_guest = true;
+  const { error } = await sb.from('kite_players').insert(row);
   if (error) return showToast('Error: ' + error.message, 'error');
-  nameEl.value = '';
+  nameEl.value = ''; const gc = document.getElementById('new-player-guest'); if (gc) gc.checked = false;
   closeModal('modal-add-player');
   showToast('✅ ' + name + ' added!', 'success');
   await loadAll(); renderAll();
@@ -1585,10 +1698,10 @@ async function mergePlayers() {
 // --- Match CRUD ---
 function openEditMatch(id) {
   if (!state.isAdmin) return showToast('Admin required', 'error');
-  const m = state.matches.find(x => x.id === id);
+  const m = state.allMatches.find(x => x.id === id);
   if (!m) return;
   document.getElementById('edit-match-id').value = id;
-  const pOpts = state.players.filter(p=>p.active!==false).map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+  const pOpts = state.allPlayers.filter(p=>p.active!==false).map(p => '<option value="' + p.id + '">' + esc(p.name) + (p.is_guest ? ' (guest)' : '') + '</option>').join('');
   const sOpts = state.seasons.map(s => '<option value="' + esc(s.name) + '"' + (m.season===s.name?' selected':'') + '>' + esc(s.name) + '</option>').join('');
   document.getElementById('edit-match-winner').innerHTML = pOpts;
   document.getElementById('edit-match-loser').innerHTML = pOpts;
@@ -1743,12 +1856,12 @@ function openEditTeam(teamId) {
 function renderPlayerCheckboxes(selected) {
   const box = document.getElementById('team-player-checkboxes');
   if (!box) return;
-  const activePlayers = state.players.filter(p => p.active !== false);
+  const activePlayers = state.allPlayers.filter(p => p.active !== false);
   box.innerHTML = activePlayers.map(p => {
     const isSel = selected.includes(p.id);
     const pId = p.id.replace(/['"]/g, '');
     return '<div class="player-checkbox-item' + (isSel?' selected':'') + '" data-pid="' + pId + '" onclick="toggleTeamPlayer(this)">' +
-      '<span>' + (isSel?'\u2705':'\u2B1C') + '</span>' + esc(p.name) + '</div>';
+      '<span>' + (isSel?'\u2705':'\u2B1C') + '</span>' + esc(p.name) + (p.is_guest ? ' <small style="opacity:.7">(guest)</small>' : '') + '</div>';
   }).join('');
   updateTeamCount();
 }
@@ -1855,7 +1968,7 @@ function renderTeamScoreCard(dateMatches) {
 
 // --- Export ---
 function exportJSON() {
-  const data = { exported: new Date().toISOString(), players: state.players, matches: state.matches, seasons: state.seasons };
+  const data = { exported: new Date().toISOString(), players: state.allPlayers, matches: state.allMatches, seasons: state.seasons };
   dl('bakss-kite.json', JSON.stringify(data, null, 2), 'application/json');
   showToast('📄 Exported', 'success');
 }
