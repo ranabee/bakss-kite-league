@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.6.1 -->
+<title>BAKSS Kite Manager</title><!-- v1.6.2 -->
 <script src="./supabase.min.js"></script>
 <style>
 :root{
@@ -897,9 +897,9 @@ async function downloadTeamResultPdf() {
   const lead = T.length > 1 && T[0].pct === T[1].pct && T[0].wins === T[1].wins ? 'Level' : T[0].team.name;
   doc.setTextColor(...navy); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
   doc.text(lead === 'Level' ? 'Result: level' : 'Leading: ' + lead, M, y); y += 8;
-  const tbl = (head, body, opt) => { doc.autoTable(Object.assign({ startY: y + 6, head: [head], body, theme: 'striped', margin: { left: M, right: M }, styles: { fontSize: 10, cellPadding: 5 }, headStyles: { fillColor: navy, textColor: [255, 215, 106] } }, opt || {})); y = doc.lastAutoTable.finalY + 18; };
-  const title = t => { if (y > 740) { doc.addPage(); y = 50; } doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...gold); doc.text(t, M, y + 6); y += 4; };
-  title('Scoreboard');
+  const tbl = (head, body, opt) => { doc.autoTable(Object.assign({ startY: y + 6, head: [head], body, theme: 'striped', margin: { left: M, right: M }, styles: { fontSize: 10, cellPadding: 5 }, rowPageBreak: 'avoid', showHead: 'everyPage', pageBreak: 'auto', headStyles: { fillColor: navy, textColor: [255, 215, 106] } }, opt || {})); y = doc.lastAutoTable.finalY + 18; };
+  const title = (t, rows) => { const need = 30 + 24 + (rows || 3) * 23, room = 800 - y; if (need > room && (need <= 740 || room < 200)) { doc.addPage(); y = 50; } doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...gold); doc.text(t, M, y + 6); y += 4; };
+  title('Scoreboard', T.length);
   tbl(['Team', 'Won', 'Lost', 'Win %'], T.map(x => [x.team.name, x.wins, x.losses, Math.round(x.pct * 100) + '%']));
   if (D.T.length === 2) { doc.setFontSize(10); doc.setTextColor(80); doc.setFont('helvetica', 'normal'); doc.text('Head-to-head between teams: ' + D.T[0].team.name + ' ' + (D.T[0].cross[1] || 0) + ' - ' + (D.T[1].cross[0] || 0) + ' ' + D.T[1].team.name + '   |   Total cuts: ' + D.matches.length, M, y - 8); y += 8; }
   const aw = [];
@@ -907,12 +907,12 @@ async function downloadTeamResultPdf() {
   const bs = [...D.lb].sort((a, b) => b.mxW - a.mxW || a.name.localeCompare(b.name))[0];
   if (bs && bs.mxW > 1) aw.push(['Best streak', bs.name + ' (' + bs.mxW + ')']);
   if (D.rivals[0]) aw.push(['Top rivalry', D.rivals[0].p1 + ' vs ' + D.rivals[0].p2 + ' (' + D.rivals[0].score + ')']);
-  if (aw.length) { title('Awards'); tbl(['Award', 'Player'], aw); }
-  title('Leaderboard');
+  if (aw.length) { title('Awards', aw.length); tbl(['Award', 'Player'], aw); }
+  title('Leaderboard', D.lb.length);
   tbl(['#', 'Player', 'Team', 'W', 'L', 'Win %'], D.lb.map((p, i) => [i + 1, p.name + (p.is_guest ? ' (guest)' : ''), D.T[p.ti].team.name, p.wins, p.losses, p.winPct + '%']));
   const top = [...D.lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name)).slice(0, 10);
-  title('Top 10 Cutters'); tbl(['#', 'Player', 'Team', 'Wins'], top.map((p, i) => [i + 1, p.name, D.T[p.ti].team.name, p.wins]));
-  if (D.rivals.length) { title('Top Rivalries (between teams)'); tbl(['#', 'Rivalry', 'Cuts', 'Score'], D.rivals.map((r, i) => [i + 1, r.p1 + ' vs ' + r.p2, r.total, r.score])); }
+  title('Top 10 Cutters', top.length); tbl(['#', 'Player', 'Team', 'Wins'], top.map((p, i) => [i + 1, p.name, D.T[p.ti].team.name, p.wins]));
+  if (D.rivals.length) { title('Top Rivalries (between teams)', D.rivals.length); tbl(['#', 'Rivalry', 'Cuts', 'Score'], D.rivals.map((r, i) => [i + 1, r.p1 + ' vs ' + r.p2, r.total, r.score])); }
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120); doc.text('BAKSS Kite League  |  Team Result ' + fmtDate(d) + '  |  Page ' + i + ' of ' + n, M, 818); }
   const name = 'BAKSS-Team-Result-' + d + '.pdf', blob = doc.output('blob'), file = new File([blob], name, { type: 'application/pdf' });
