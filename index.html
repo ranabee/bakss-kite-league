@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.6.3 -->
+<title>BAKSS Kite Manager</title><!-- v1.8.0 -->
 <script src="./supabase.min.js"></script>
 <style>
 :root{
@@ -883,42 +883,136 @@ function renderTeamResult() {
 }
 
 function trLoadScript(src) { return new Promise((res, rej) => { if (document.querySelector('script[data-l="' + src + '"]')) return res(); const e = document.createElement('script'); e.src = src; e.dataset.l = src; e.onload = res; e.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(e); }); }
+async function pdfKit(subtitle, footLeft) {
+  try { await trLoadScript('./jspdf.min.js'); await trLoadScript('./jspdf-autotable.min.js'); } catch (e) { showToast('PDF tools could not load - check your connection', 'error'); return null; }
+  const toData = u => fetch(u).then(r => { if (!r.ok) throw 0; return r.blob(); }).then(b => new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result); f.readAsDataURL(b); })).catch(() => null);
+  const [bg, logo] = await Promise.all([toData('./bg-kite.jpg'), toData('./bakss-logo.png')]);
+  // Emoji -> small PNG via canvas (uses the phone/computer's own colour-emoji font); null if the device has none
+  const eCache = {};
+  const emoji = ch => { if (ch in eCache) return eCache[ch]; let out = null; try { const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.font = '72px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 48, 52); const px = x.getImageData(0, 0, 96, 96).data; let n = 0; for (let i = 3; i < px.length; i += 4) if (px[i] > 40) n++; if (n > 300) out = c.toDataURL('image/png'); } catch (e) {} return (eCache[ch] = out); };
+  const MED = { '🥇': [212, 160, 23], '🥈': [140, 150, 165], '🥉': [176, 112, 60] };
+  const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' }), PW = 595, PH = 842, M = 30, W = PW - 2 * M, TOP = 82, BOT = 806, RH = 22;
+  const navy = [15, 30, 60], gold = [200, 134, 10], ink = [15, 23, 42];
+  const op = v => doc.setGState(new doc.GState({ opacity: v }));
+  const icon = (ch, x, y, s, num) => { const im = emoji(ch); if (im) doc.addImage(im, 'PNG', x, y, s, s); else if (MED[ch]) { doc.setFillColor(...MED[ch]); doc.circle(x + s / 2, y + s / 2, s / 2, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(s * 0.62); doc.text(String(num || ''), x + s / 2, y + s * 0.72, { align: 'center' }); } };
+  const frame = () => {
+    if (bg) doc.addImage(bg, 'JPEG', 0, 0, PW, PH);
+    op(0.93); doc.setFillColor(...navy); doc.rect(0, 0, PW, 64, 'F'); doc.rect(0, 818, PW, 24, 'F'); op(1);
+    doc.setFillColor(...gold); doc.rect(0, 64, PW, 3, 'F');
+    let tx = M; if (logo) { try { doc.addImage(logo, 'PNG', M, 10, 44, 44); tx = M + 56; } catch (e) {} }
+    doc.setTextColor(255, 215, 106); doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.text('BAKSS Kite League', tx, 32);
+    doc.setTextColor(255); doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.text('' + subtitle, tx, 49);
+    icon('🪁', PW - M - 34, 15, 34);
+  };
+  const panel = (y, h) => { op(0.84); doc.setFillColor(255, 255, 255); doc.setDrawColor(255, 255, 255); doc.roundedRect(M, y, W, h, 8, 8, 'FD'); op(1); doc.setDrawColor(200, 134, 10); doc.setLineWidth(0.6); doc.roundedRect(M, y, W, h, 8, 8, 'S'); };
+  const heading = (y, ch, t) => { icon(ch, M + 12, y + 8, 16); doc.setTextColor(...navy); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(t, M + 34, y + 21); };
+  frame();
+  const newPage = () => { doc.addPage(); frame(); y = TOP; };
+
+  let y = TOP;
+  const hero = (o) => {
+    panel(y, 132); icon(o.icon || '🏆', M + 16, y + 16, 46);
+    doc.setTextColor(...gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(o.label, M + 74, y + 28);
+    let fs = 22; doc.setFont('helvetica', 'bold'); while (fs > 11 && (doc.setFontSize(fs), doc.getTextWidth(o.name) > W - 90)) fs--;
+    doc.setTextColor(...navy); doc.setFontSize(fs); doc.text(o.name, M + 74, y + 52);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60, 70, 90); doc.text(o.line || '', M + 74, y + 70);
+    const cw = (W - 24 - 10 * (o.chips.length - 1)) / o.chips.length;
+    o.chips.forEach((c, i) => { const cx = M + 12 + i * (cw + 10); op(0.9); doc.setFillColor(15, 30, 60); doc.roundedRect(cx, y + 84, cw, 38, 6, 6, 'F'); op(1); doc.setTextColor(255, 215, 106); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(String(c[0]), cx + cw / 2, y + 102, { align: 'center' }); doc.setTextColor(255); doc.setFontSize(7.5); doc.text(c[1], cx + cw / 2, y + 114, { align: 'center' }); });
+    y += 132 + 14;
+  };
+  const section = (ch, title, head, rows, cols, opt) => {
+    opt = opt || {}; const note = opt.note ? 18 : 0;
+    let rest = rows.map((r, i) => ({ r, i })), first = true;
+    while (rest.length || first) {
+      const need = 32 + (rest.length + 1) * RH + 12 + note;
+      if (need > BOT - y && (need <= BOT - TOP || BOT - y < 150)) newPage();
+      const room = Math.floor((BOT - y - 32 - 12 - note) / RH) - 1, take = Math.max(1, Math.min(rest.length, room)), chunk = rest.slice(0, take);
+      rest = rest.slice(take);
+      const h = 32 + (chunk.length + 1) * RH + 12 + (rest.length ? 0 : note);
+      panel(y, h); heading(y, ch, first ? title : title + ' (continued)');
+      const colStyles = {}; cols.forEach((w, i) => { colStyles[i] = { cellWidth: w, halign: (opt.center || []).includes(i) ? 'center' : 'left' }; });
+      doc.autoTable({
+        startY: y + 32, head: [head], body: chunk.map(c => c.r), theme: 'grid', margin: { left: M + 12, right: PW - M - 12 }, tableWidth: W - 24, pageBreak: 'avoid',
+        styles: { fontSize: 9.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, minCellHeight: RH, overflow: 'ellipsize', lineColor: [205, 214, 228], lineWidth: 0.25, textColor: ink, fillColor: false, valign: 'middle' },
+        headStyles: { fillColor: navy, textColor: [255, 215, 106], fontStyle: 'bold', lineColor: navy }, columnStyles: colStyles,
+        didParseCell: c => { if (c.section !== 'body') return; const g = chunk[c.row.index], hl = opt.hl && opt.hl(g.i);
+          if (hl === 1) { c.cell.styles.fillColor = [255, 232, 150]; c.cell.styles.fontStyle = 'bold'; } else if (hl === 2) c.cell.styles.fillColor = [232, 236, 243]; else if (hl === 3) c.cell.styles.fillColor = [248, 226, 205];
+          if (c.column.index === 0 && opt.medal && g.i < 3) c.cell.text = ['']; if (c.column.index === 0 && opt.icons) c.cell.text = ['']; },
+        didDrawCell: c => { if (c.section !== 'body' || c.column.index !== 0) return; const g = chunk[c.row.index], s = 13, x = c.cell.x + (c.cell.width - s) / 2, yy = c.cell.y + (c.cell.height - s) / 2;
+          if (opt.icons) { icon(opt.icons[g.i], x, yy, s); } else if (opt.medal && g.i < 3) icon(['🥇', '🥈', '🥉'][g.i], x, yy, s, g.i + 1); }
+      });
+      if (!rest.length && opt.note) { doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(70, 80, 100); doc.text(opt.note, M + 14, doc.lastAutoTable.finalY + 13); }
+      y += h + 14; first = false; if (rest.length) newPage();
+      if (!rows.length) break;
+    }
+  };
+  const finish = async (name, shareTitle) => {
+    const n = doc.getNumberOfPages(), gen = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(255, 215, 106); doc.text(footLeft, M, 833); doc.text('Generated ' + gen, PW / 2, 833, { align: 'center' }); doc.text('Page ' + i + ' of ' + n, PW - M, 833, { align: 'right' }); }
+    const blob = doc.output('blob'), file = new File([blob], name, { type: 'application/pdf' }); window._lastPdfBlob = blob;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: shareTitle }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    showToast('PDF downloaded', 'success');
+  };
+  return { section, hero, finish, hlTop: i => i === 0 ? 1 : i === 1 ? 2 : i === 2 ? 3 : 0 };
+}
+
 async function downloadTeamResultPdf() {
   const d = state.trDate || trDefaultDate(), D = teamResultData(d);
   if (!D.teams.length) return showToast('No teams on this date', 'error');
-  try { await trLoadScript('./jspdf.min.js'); await trLoadScript('./jspdf-autotable.min.js'); } catch (e) { return showToast('PDF tools could not load - check your connection', 'error'); }
-  const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' }), W = doc.internal.pageSize.getWidth(), M = 36;
-  const navy = [15, 30, 60], gold = [200, 134, 10];
-  doc.setFillColor(...navy); doc.rect(0, 0, W, 78, 'F');
-  doc.setTextColor(255, 215, 106); doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text('BAKSS Kite League', M, 34);
-  doc.setTextColor(255, 255, 255); doc.setFontSize(12); doc.setFont('helvetica', 'normal'); doc.text('Team Result  |  ' + fmtDate(d), M, 56);
-  let y = 100;
+  const K = await pdfKit('Team Result  |  ' + fmtDate(d), 'BAKSS Kite League  |  Team Result ' + fmtDate(d)); if (!K) return;
+  const { section, hero, hlTop } = K;
   const T = [...D.T].sort((a, b) => b.pct - a.pct || b.wins - a.wins);
-  const lead = T.length > 1 && T[0].pct === T[1].pct && T[0].wins === T[1].wins ? 'Level' : T[0].team.name;
-  doc.setTextColor(...navy); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text(lead === 'Level' ? 'Result: level' : 'Leading: ' + lead, M, y); y += 8;
-  const tbl = (head, body, opt) => { doc.autoTable(Object.assign({ startY: y + 6, head: [head], body, theme: 'striped', margin: { left: M, right: M }, styles: { fontSize: 10, cellPadding: 5 }, rowPageBreak: 'avoid', showHead: 'everyPage', pageBreak: 'auto', headStyles: { fillColor: navy, textColor: [255, 215, 106] } }, opt || {})); y = doc.lastAutoTable.finalY + 18; };
-  const title = (t, rows) => { const need = 30 + 24 + (rows || 3) * 23, room = 800 - y; if (need > room && (need <= 740 || room < 200)) { doc.addPage(); y = 50; } doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...gold); doc.text(t, M, y + 6); y += 4; };
-  title('Scoreboard', T.length);
-  tbl(['Team', 'Won', 'Lost', 'Win %'], T.map(x => [x.team.name, x.wins, x.losses, Math.round(x.pct * 100) + '%']));
-  if (D.T.length === 2) { doc.setFontSize(10); doc.setTextColor(80); doc.setFont('helvetica', 'normal'); doc.text('Head-to-head between teams: ' + D.T[0].team.name + ' ' + (D.T[0].cross[1] || 0) + ' - ' + (D.T[1].cross[0] || 0) + ' ' + D.T[1].team.name + '   |   Total cuts: ' + D.matches.length, M, y - 8); y += 8; }
-  const aw = [];
-  D.T.forEach(x => { const mv = D.lb.filter(p => p.ti === x.idx).sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name))[0]; if (mv) aw.push([x.team.name + ' MVP', mv.name + ' (' + mv.wins + ' wins)']); });
+  const level = T.length > 1 && T[0].pct === T[1].pct && T[0].wins === T[1].wins, win = T[0];
+  const playing = new Set(); D.matches.forEach(m => { playing.add(m.winner_id); playing.add(m.loser_id); });
+  hero({ icon: '🏆', label: level ? 'SCORES LEVEL' : 'WINNING TEAM', name: level ? T.map(t => t.team.name).join('  =  ') : win.team.name, line: win.wins + ' won  -  ' + win.losses + ' lost  -  ' + Math.round(win.pct * 100) + '% win rate', chips: [[D.matches.length, 'CUTS'], [D.inter.length, 'BETWEEN TEAMS'], [playing.size, 'PLAYERS']] });
+  // ---- scoreboard ----
+  const note = D.T.length === 2 ? 'Head-to-head between teams: ' + D.T[0].team.name + ' ' + (D.T[0].cross[1] || 0) + ' - ' + (D.T[1].cross[0] || 0) + ' ' + D.T[1].team.name : '';
+  section('🏁', 'Team Scoreboard', ['', 'Team', 'Won', 'Lost', 'Win %'], T.map((x, i) => [i + 1, x.team.name, x.wins, x.losses, Math.round(x.pct * 100) + '%']), [40, 251, 60, 60, 100],
+    { icons: T.map((x, i) => (i === 0 && !level) ? '🏆' : '🏁'), hl: i => (i === 0 && !level) ? 1 : 0, center: [0, 2, 3, 4], note });
+  // ---- awards ----
+  const aw = [], ai = [];
+  D.T.forEach(x => { const mv = D.lb.filter(p => p.ti === x.idx).sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name))[0]; if (mv) { aw.push(['', x.team.name + ' MVP', mv.name, mv.wins + (mv.wins === 1 ? ' win' : ' wins')]); ai.push('⭐'); } });
   const bs = [...D.lb].sort((a, b) => b.mxW - a.mxW || a.name.localeCompare(b.name))[0];
-  if (bs && bs.mxW > 1) aw.push(['Best streak', bs.name + ' (' + bs.mxW + ')']);
-  if (D.rivals[0]) aw.push(['Top rivalry', D.rivals[0].p1 + ' vs ' + D.rivals[0].p2 + ' (' + D.rivals[0].score + ')']);
-  if (aw.length) { title('Awards', aw.length); tbl(['Award', 'Player'], aw); }
-  title('Leaderboard', D.lb.length);
-  tbl(['#', 'Player', 'Team', 'W', 'L', 'Win %'], D.lb.map((p, i) => [i + 1, p.name + (p.is_guest ? ' (guest)' : ''), D.T[p.ti].team.name, p.wins, p.losses, p.winPct + '%']));
+  if (bs && bs.mxW > 1) { aw.push(['', 'Best streak', bs.name, bs.mxW + ' wins in a row']); ai.push('🔥'); }
+  if (D.rivals[0]) { aw.push(['', 'Top rivalry', D.rivals[0].p1 + ' vs ' + D.rivals[0].p2, D.rivals[0].score + ' (' + D.rivals[0].total + ' cuts)']); ai.push('⚔️'); }
+  if (aw.length) section('⭐', 'Awards', ['', 'Award', 'Recipient', 'Detail'], aw, [40, 150, 191, 130], { icons: ai, hl: () => 1, center: [0] });
+  // ---- leaderboard ----
+  section('📊', 'Leaderboard', ['#', 'Player', 'Team', 'W', 'L', 'Win %'], D.lb.map((p, i) => [i + 1, p.name + (p.is_guest ? ' (guest)' : ''), D.T[p.ti].team.name, p.wins, p.losses, p.winPct + '%']), [40, 165, 150, 40, 40, 76], { medal: 1, hl: hlTop, center: [0, 3, 4, 5] });
+  // ---- top 10 cutters ----
   const top = [...D.lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name)).slice(0, 10);
-  title('Top 10 Cutters', top.length); tbl(['#', 'Player', 'Team', 'Wins'], top.map((p, i) => [i + 1, p.name, D.T[p.ti].team.name, p.wins]));
-  if (D.rivals.length) { title('Top Rivalries (between teams)', D.rivals.length); tbl(['#', 'Rivalry', 'Cuts', 'Score'], D.rivals.map((r, i) => [i + 1, r.p1 + ' vs ' + r.p2, r.total, r.score])); }
-  const n = doc.getNumberOfPages();
-  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120); doc.text('BAKSS Kite League  |  Team Result ' + fmtDate(d) + '  |  Page ' + i + ' of ' + n, M, 818); }
-  const name = 'BAKSS-Team-Result-' + d + '.pdf', blob = doc.output('blob'), file = new File([blob], name, { type: 'application/pdf' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'BAKSS Team Result ' + fmtDate(d) }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  showToast('PDF downloaded', 'success');
+  section('✂️', 'Top 10 Cutters', ['#', 'Player', 'Team', 'Wins'], top.map((p, i) => [i + 1, p.name + (p.is_guest ? ' (guest)' : ''), D.T[p.ti].team.name, p.wins]), [40, 220, 171, 80], { medal: 1, hl: hlTop, center: [0, 3] });
+  // ---- rivalries ----
+  if (D.rivals.length) section('⚔️', 'Top 10 Rivalries (between teams)', ['#', 'Rivalry', 'Cuts', 'Score'], D.rivals.map((r, i) => [i + 1, r.p1 + ' vs ' + r.p2, r.total, r.score]), [40, 291, 80, 100], { medal: 1, hl: hlTop, center: [0, 2, 3] });
+  await K.finish('BAKSS-Team-Result-' + d + '.pdf', 'BAKSS Team Result ' + fmtDate(d));
+}
+
+async function downloadDashboardPdf() {
+  const all = state.matches, sel = state.dashboardDate, today = todayStr();
+  const base = state.activeSeason ? all.filter(m => m.season === state.activeSeason) : all;
+  const view = sel ? all.filter(m => m.match_date === sel) : base;
+  if (!view.length) return showToast('No cuts to report for this view', 'error');
+  const scope = sel ? fmtDate(sel) : (state.activeSeason || 'All Time'), ref = sel || today;
+  const lb = leaderboard(view, state.players, view), champ = champion(view), tc = topCutter(lb);
+  const mostL = [...lb].sort((a, b) => b.losses - a.losses || a.name.localeCompare(b.name))[0], bestW = [...lb].sort((a, b) => b.mxW - a.mxW || a.name.localeCompare(b.name))[0];
+  const K = await pdfKit((sel ? 'Daily Report' : 'League Report') + '  |  ' + scope, 'BAKSS Kite League  |  ' + (sel ? 'Daily Report ' : 'League Report ') + scope); if (!K) return;
+  const { section, hero, hlTop } = K;
+  const ids = new Set(); view.forEach(m => { ids.add(m.winner_id); ids.add(m.loser_id); });
+  hero({ icon: '🏆', label: sel ? 'CHAMPION OF THE DAY' : 'CHAMPION', name: champ ? champ.name : '-', line: champ ? champ.wins + ' won  -  ' + champ.losses + ' lost  -  ' + champ.winPct + '% win rate' : '', chips: [[view.length, 'CUTS'], [ids.size, 'PLAYERS'], [tc ? tc.wins : 0, 'TOP CUTS'], [bestW ? bestW.mxW : 0, 'BEST STREAK']] });
+  const per = [['Day', all.filter(m => m.match_date === ref)], ['Month', all.filter(m => (m.match_date || '').startsWith(ref.slice(0, 7)))], ['Year', all.filter(m => (m.match_date || '').startsWith(ref.slice(0, 4)))]], cr = [];
+  per.forEach(([l, ms]) => { const c = champion(ms); if (c) cr.push(['', l + ' champion', c.name, c.winPct + '%  (' + c.wins + 'W ' + c.losses + 'L)']); });
+  if (cr.length) section('🏆', 'Champions', ['', 'Period', 'Champion', 'Record'], cr, [40, 150, 191, 130], { icons: cr.map(() => '🏆'), hl: i => i === 0 ? 1 : 0, center: [0] });
+  const aw = [], ai = [];
+  if (tc) { aw.push(['', 'Top Cutter', tc.name, tc.wins + ' wins']); ai.push('🏆'); }
+  if (bestW && bestW.mxW > 0) { aw.push(['', 'Best win streak', bestW.name, bestW.mxW + ' in a row']); ai.push('🔥'); }
+  if (mostL && mostL.losses > 0) { aw.push(['', 'Most losses', mostL.name, mostL.losses + ' cuts']); ai.push('💧'); }
+  const rv = rivalriesFrom(view, 10); if (rv[0]) { aw.push(['', 'Top rivalry', rv[0].p1 + ' vs ' + rv[0].p2, rv[0].score + ' (' + rv[0].total + ' cuts)']); ai.push('⚔️'); }
+  if (aw.length) section('⭐', 'Awards', ['', 'Award', 'Recipient', 'Detail'], aw, [40, 150, 191, 130], { icons: ai, hl: () => 1, center: [0] });
+  section('📊', 'Leaderboard - ' + scope, ['#', 'Player', 'W', 'L', 'Win %', 'Streak'], lb.map((p, i) => [i + 1, p.name, p.wins, p.losses, p.winPct + '%', p.streak ? p.streak + (p.sType === 'W' ? ' W' : ' L') : '-']), [40, 211, 55, 55, 70, 80], { medal: 1, hl: hlTop, center: [0, 2, 3, 4, 5] });
+  const top = [...lb].sort((a, b) => b.wins - a.wins || b.frac - a.frac || a.name.localeCompare(b.name)).slice(0, 10);
+  section('✂️', 'Top 10 Cutters', ['#', 'Player', 'Wins', 'Win %'], top.map((p, i) => [i + 1, p.name, p.wins, p.winPct + '%']), [40, 271, 100, 100], { medal: 1, hl: hlTop, center: [0, 2, 3] });
+  if (rv.length) section('⚔️', 'Top 10 Rivalries', ['#', 'Rivalry', 'Cuts', 'Score'], rv.map((r, i) => [i + 1, r.p1 + ' vs ' + r.p2, r.total, r.score]), [40, 291, 80, 100], { medal: 1, hl: hlTop, center: [0, 2, 3] });
+  await K.finish('BAKSS-' + (sel ? 'Daily-Report-' + sel : 'League-Report-' + scope.replace(/\W+/g, '-')) + '.pdf', 'BAKSS ' + scope);
 }
 
 function renderPage(p) {
@@ -1238,6 +1332,7 @@ function renderDashboard() {
   const teamScoreHTML = renderTeamScoreCard(viewMatches);
 
   page.innerHTML =
+    '<button class="btn btn-outline" style="margin-bottom:12px" onclick="downloadDashboardPdf()">📄 Download / share PDF report</button>' +
     teamScoreHTML +
     (champD ? '<div class="champion-card"><div class="period">⚡ ' + dateLabel + (selectedDate ? '' : ' (Today)') + '\'s Champion</div><div class="name">' + esc(champD.name) + '</div><div class="stat">' + champD.winPct + '% · ' + champD.wins + 'W ' + champD.losses + 'L' + '</div></div>' :
       (selectedDate ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px"><div style="font-size:36px">😶</div><div style="color:var(--text2);font-size:13px;margin-top:8px">No cuts on ' + fmtDate(selectedDate) + '</div></div>' : '')) +
