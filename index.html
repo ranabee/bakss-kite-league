@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BAKSS Kite"/>
 <link rel="manifest" href="manifest.json"/>
-<title>BAKSS Kite Manager</title><!-- v1.8.0 -->
+<title>BAKSS Kite Manager</title><!-- v1.8.1 -->
 <script src="./supabase.min.js"></script>
 <style>
 :root{
@@ -886,7 +886,7 @@ function trLoadScript(src) { return new Promise((res, rej) => { if (document.que
 async function pdfKit(subtitle, footLeft) {
   try { await trLoadScript('./jspdf.min.js'); await trLoadScript('./jspdf-autotable.min.js'); } catch (e) { showToast('PDF tools could not load - check your connection', 'error'); return null; }
   const toData = u => fetch(u).then(r => { if (!r.ok) throw 0; return r.blob(); }).then(b => new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result); f.readAsDataURL(b); })).catch(() => null);
-  const [bg, logo] = await Promise.all([toData('./bg-kite.jpg'), toData('./bakss-logo.png')]);
+  const [bg1, bg2, logo] = await Promise.all([toData('./bg-kite.jpg'), toData('./bg-kite2.jpg'), toData('./bakss-logo.png')]);
   // Emoji -> small PNG via canvas (uses the phone/computer's own colour-emoji font); null if the device has none
   const eCache = {};
   const emoji = ch => { if (ch in eCache) return eCache[ch]; let out = null; try { const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.font = '72px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 48, 52); const px = x.getImageData(0, 0, 96, 96).data; let n = 0; for (let i = 3; i < px.length; i += 4) if (px[i] > 40) n++; if (n > 300) out = c.toDataURL('image/png'); } catch (e) {} return (eCache[ch] = out); };
@@ -896,7 +896,7 @@ async function pdfKit(subtitle, footLeft) {
   const op = v => doc.setGState(new doc.GState({ opacity: v }));
   const icon = (ch, x, y, s, num) => { const im = emoji(ch); if (im) doc.addImage(im, 'PNG', x, y, s, s); else if (MED[ch]) { doc.setFillColor(...MED[ch]); doc.circle(x + s / 2, y + s / 2, s / 2, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(s * 0.62); doc.text(String(num || ''), x + s / 2, y + s * 0.72, { align: 'center' }); } };
   const frame = () => {
-    if (bg) doc.addImage(bg, 'JPEG', 0, 0, PW, PH);
+    const bg = (doc.getNumberOfPages() % 2 === 1) ? bg1 : (bg2 || bg1); if (bg) doc.addImage(bg, 'JPEG', 0, 0, PW, PH);   // photos alternate page by page
     op(0.93); doc.setFillColor(...navy); doc.rect(0, 0, PW, 64, 'F'); doc.rect(0, 818, PW, 24, 'F'); op(1);
     doc.setFillColor(...gold); doc.rect(0, 64, PW, 3, 'F');
     let tx = M; if (logo) { try { doc.addImage(logo, 'PNG', M, 10, 44, 44); tx = M + 56; } catch (e) {} }
@@ -904,20 +904,20 @@ async function pdfKit(subtitle, footLeft) {
     doc.setTextColor(255); doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.text('' + subtitle, tx, 49);
     icon('🪁', PW - M - 34, 15, 34);
   };
-  const panel = (y, h) => { op(0.84); doc.setFillColor(255, 255, 255); doc.setDrawColor(255, 255, 255); doc.roundedRect(M, y, W, h, 8, 8, 'FD'); op(1); doc.setDrawColor(200, 134, 10); doc.setLineWidth(0.6); doc.roundedRect(M, y, W, h, 8, 8, 'S'); };
-  const heading = (y, ch, t) => { icon(ch, M + 12, y + 8, 16); doc.setTextColor(...navy); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(t, M + 34, y + 21); };
+  const panel = (y, h) => { op(0.3); doc.setFillColor(255, 255, 255); doc.setDrawColor(255, 255, 255); doc.roundedRect(M, y, W, h, 8, 8, 'FD'); op(1); doc.setDrawColor(200, 134, 10); doc.setLineWidth(0.6); doc.roundedRect(M, y, W, h, 8, 8, 'S'); };
+  const heading = (y, ch, t) => { op(0.62); doc.setFillColor(255, 255, 255); doc.roundedRect(M + 8, y + 5, W - 16, 24, 6, 6, 'F'); op(1); icon(ch, M + 12, y + 8, 16); doc.setTextColor(...navy); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(t, M + 34, y + 21); };
   frame();
   const newPage = () => { doc.addPage(); frame(); y = TOP; };
 
   let y = TOP;
   const hero = (o) => {
     panel(y, 132); icon(o.icon || '🏆', M + 16, y + 16, 46);
-    doc.setTextColor(...gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(o.label, M + 74, y + 28);
+    doc.setTextColor(130, 80, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(o.label, M + 74, y + 28);
     let fs = 22; doc.setFont('helvetica', 'bold'); while (fs > 11 && (doc.setFontSize(fs), doc.getTextWidth(o.name) > W - 90)) fs--;
     doc.setTextColor(...navy); doc.setFontSize(fs); doc.text(o.name, M + 74, y + 52);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60, 70, 90); doc.text(o.line || '', M + 74, y + 70);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(10, 20, 45); doc.text(o.line || '', M + 74, y + 70);
     const cw = (W - 24 - 10 * (o.chips.length - 1)) / o.chips.length;
-    o.chips.forEach((c, i) => { const cx = M + 12 + i * (cw + 10); op(0.9); doc.setFillColor(15, 30, 60); doc.roundedRect(cx, y + 84, cw, 38, 6, 6, 'F'); op(1); doc.setTextColor(255, 215, 106); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(String(c[0]), cx + cw / 2, y + 102, { align: 'center' }); doc.setTextColor(255); doc.setFontSize(7.5); doc.text(c[1], cx + cw / 2, y + 114, { align: 'center' }); });
+    o.chips.forEach((c, i) => { const cx = M + 12 + i * (cw + 10); op(0.8); doc.setFillColor(15, 30, 60); doc.roundedRect(cx, y + 84, cw, 38, 6, 6, 'F'); op(1); doc.setTextColor(255, 215, 106); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(String(c[0]), cx + cw / 2, y + 102, { align: 'center' }); doc.setTextColor(255); doc.setFontSize(7.5); doc.text(c[1], cx + cw / 2, y + 114, { align: 'center' }); });
     y += 132 + 14;
   };
   const section = (ch, title, head, rows, cols, opt) => {
@@ -933,15 +933,17 @@ async function pdfKit(subtitle, footLeft) {
       const colStyles = {}; cols.forEach((w, i) => { colStyles[i] = { cellWidth: w, halign: (opt.center || []).includes(i) ? 'center' : 'left' }; });
       doc.autoTable({
         startY: y + 32, head: [head], body: chunk.map(c => c.r), theme: 'grid', margin: { left: M + 12, right: PW - M - 12 }, tableWidth: W - 24, pageBreak: 'avoid',
-        styles: { fontSize: 9.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, minCellHeight: RH, overflow: 'ellipsize', lineColor: [205, 214, 228], lineWidth: 0.25, textColor: ink, fillColor: false, valign: 'middle' },
+        styles: { fontSize: 9.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, minCellHeight: RH, overflow: 'ellipsize', lineWidth: 0, textColor: ink, fillColor: false, valign: 'middle' },
         headStyles: { fillColor: navy, textColor: [255, 215, 106], fontStyle: 'bold', lineColor: navy }, columnStyles: colStyles,
-        didParseCell: c => { if (c.section !== 'body') return; const g = chunk[c.row.index], hl = opt.hl && opt.hl(g.i);
-          if (hl === 1) { c.cell.styles.fillColor = [255, 232, 150]; c.cell.styles.fontStyle = 'bold'; } else if (hl === 2) c.cell.styles.fillColor = [232, 236, 243]; else if (hl === 3) c.cell.styles.fillColor = [248, 226, 205];
+        didParseCell: c => { if (c.section !== 'body') return; const g = chunk[c.row.index], hl = (opt.hl && opt.hl(g.i)) || 0; c.cell._hl = hl;
+          if (hl === 1) c.cell.styles.fontStyle = 'bold'; c.cell.styles.textColor = [8, 16, 40];
           if (c.column.index === 0 && opt.medal && g.i < 3) c.cell.text = ['']; if (c.column.index === 0 && opt.icons) c.cell.text = ['']; },
+        willDrawCell: c => { let col, a; if (c.section === 'head') { col = navy; a = 0.8; } else { const h = c.cell._hl || 0; col = h === 1 ? [255, 205, 70] : h === 2 ? [190, 202, 222] : h === 3 ? [238, 180, 130] : [255, 255, 255]; a = h ? 0.46 : 0.3; }
+          op(a); doc.setFillColor(...col); doc.rect(c.cell.x, c.cell.y, c.cell.width, c.cell.height, 'F'); op(0.75); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6); doc.rect(c.cell.x, c.cell.y, c.cell.width, c.cell.height, 'S'); op(1); c.cell.styles.fillColor = false; },
         didDrawCell: c => { if (c.section !== 'body' || c.column.index !== 0) return; const g = chunk[c.row.index], s = 13, x = c.cell.x + (c.cell.width - s) / 2, yy = c.cell.y + (c.cell.height - s) / 2;
           if (opt.icons) { icon(opt.icons[g.i], x, yy, s); } else if (opt.medal && g.i < 3) icon(['🥇', '🥈', '🥉'][g.i], x, yy, s, g.i + 1); }
       });
-      if (!rest.length && opt.note) { doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(70, 80, 100); doc.text(opt.note, M + 14, doc.lastAutoTable.finalY + 13); }
+      if (!rest.length && opt.note) { doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(10, 20, 45); doc.text(opt.note, M + 14, doc.lastAutoTable.finalY + 13); }
       y += h + 14; first = false; if (rest.length) newPage();
       if (!rows.length) break;
     }
